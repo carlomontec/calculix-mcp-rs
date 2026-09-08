@@ -1,0 +1,15 @@
+[package]
+name = "cgx-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core FEA data model, memory-mapped FRD parser, and invariants for cgx-top"
+
+[dependencies]
+memmap2 = { workspace = true }
+rayon = { workspace = true }
+byteorder = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+glam = { workspace = true }
