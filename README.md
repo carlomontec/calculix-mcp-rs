@@ -40,48 +40,19 @@ Condensed from a real Claude Code session on the 7-sector compressor rotor bench
 > The mesh is one connected part of 10,816 C3D20R elements with no free nodes and no inverted elements; volume 8,130.8 and mass 2.15e-5 in deck units. The worst aspect ratio is 26.7, at elements 7888 and 7904.
 > The result file holds the full 342,139-node expansion. Modes 1, 3 and 5 at nodal diameter 5 are at 8,310, 11,052 and 15,321. Their stress peaks are normalised mode-shape amplitudes, not physical stresses.
 
-Other things you can ask:
-
-| You say | The agent uses |
-|---|---|
-| "Show me the frequency step and the boundary conditions of this deck." | `inp_cards` |
-| "Any free nodes or disconnected parts? What is the mass per material?" | `mesh_check` |
-| "Mesh a 100 × 20 × 10 block with 20-node hexes and check it." | `cgx_help`, `cgx_run_batch`, `mesh_check` |
-| "Save the upward-facing faces above z = 40 as a surface called TOP." | `mesh_select` |
-| "Which parts touch each other? Write the contact surfaces." | `mesh_contact_pairs` |
-| "Request 12 modes instead of 5 and show me the diff." | `inp_edit` |
-| "Solve it with MUMPS on 8 threads and tell me when it is done." | `ccx_solve`, `ccx_job_status` |
-| "My contact job keeps cutting back. Why?" | `ccx_diagnose` |
-| "Peak von Mises on set BLADE_ROOT in every step, and the five worst nodes with coordinates." | `frd_query_set` |
-
-Full transcripts with the raw tool output are in [`crates/calculix-mcp/README.md`](crates/calculix-mcp/README.md).
+More examples, with the raw tool output, are in the [server README](crates/calculix-mcp/README.md); a plain-language guide to every tool is in [docs/TOOLS.md](docs/TOOLS.md).
 
 ## Highlights
 
 - Works on existing decks: the whole `*INCLUDE` tree, cyclic symmetry, modal results with mode number and nodal diameter.
-- Reads large ASCII and binary `.frd` files lazily; a 409 MB file is summarised in well under a second.
-- Solves on a private copy of the deck and always cleans up its processes.
+- Reads large ASCII and binary `.frd` files lazily; a 409 MB file is summarised in 0.6 s.
 - Builds geometry and meshes through CalculiX GraphiX, finds contact pairs, and edits decks only by writing new files.
-- Returns exact values with node ids, plus notes when a number needs context.
+- Solves on a private copy of the deck in the background and always cleans up its processes.
+- Confined to the models folder, no shell, and returns exact values with node ids instead of estimates.
 
-## Works best with CalculiX MultiSolver
-
-`calculix-mcp` runs with stock CalculiX, but it gets more out of [CalculiX MultiSolver](https://github.com/carlomontec/CalculiX-CrunchiX-MultiSolver), which writes a structured JSON report of every run (`-j`). With stock CalculiX the server has to work from the solver's text output; with MultiSolver the solver states the facts itself, so the agent reports them instead of inferring them:
-
-| What the agent can tell you | Stock CalculiX | CalculiX MultiSolver |
-|---|---|---|
-| Did the run succeed? | Exit code and `*ERROR` lines | Explicit success flag, plus the same checks |
-| Did each step converge, and what type was it? | Inferred from `.sta` and `.cvg` | Reported per step by the solver |
-| Eigenfrequencies and effective modal mass | Frequencies from the `.frd` after the run | Mode table with frequencies and effective mass in the run report |
-| Reaction-force totals of `*NODE PRINT` sets | Only in the `.dat` text | Totals per increment in the run report |
-| Solver used, wall time, model size | Not available | Solver name, wall time, nodes, elements and equations |
-| Convergence diagnosis | From `.sta` and `.cvg` | Same, cross-checked with the per-step flags |
-
-MultiSolver also replaces the legacy SPOOLES solver: on the compressor rotor benchmark (38,408 equations, Apple M3), Apple Accelerate and MUMPS finish in about 6 s against 13 s for SPOOLES, about 2.2 times faster ([its benchmarks](https://github.com/carlomontec/CalculiX-CrunchiX-MultiSolver/blob/main/benchmarks/README.md)). Stock CalculiX stays fully supported and is tested in CI.
+`calculix-mcp` runs with stock CalculiX. With [CalculiX MultiSolver](https://github.com/carlomontec/CalculiX-CrunchiX-MultiSolver) it also gets a JSON report of every run (per-step convergence, solver, timings, mode tables), so job status and diagnosis are richer.
 
 ## Install and connect
-
-### 1. Build
 
 ```bash
 git clone https://github.com/carlomontec/calculix-mcp-rs.git
@@ -89,26 +60,13 @@ cd calculix-mcp-rs
 cargo build --release -p calculix-mcp
 ```
 
-The server is `target/release/calculix-mcp`. You need a Rust toolchain, and for solving, either stock CalculiX (`ccx`, for example from your distribution's package) or a build of [CalculiX MultiSolver](https://github.com/carlomontec/CalculiX-CrunchiX-MultiSolver). MultiSolver is recommended: it writes JSON telemetry (per-step convergence flags, solver name, timings, mode tables) that makes job status and diagnosis richer. With stock CalculiX, progress and diagnosis use the `.sta` and `.cvg` files only. Every other tool works without a solver.
-
-### 2. Connect your AI client
-
-`--ccx NAME=PATH` registers a solver binary, stock `ccx` or a MultiSolver build. At startup the server checks which one it is and logs it to stderr; a MultiSolver binary is run as `-j <job>` and a stock one as `-i <job>`. Repeat `--ccx` to offer several (for example `accelerate`, `spooles`, `mumps`, or `ccx=/usr/bin/ccx`); the first is the default. Add `--cgx PATH` (a CalculiX GraphiX binary, for example the GLFW edition) to enable geometry and meshing. Use absolute paths.
-
-**Register once; the models folder follows your project.** The models folder holds your `.inp` decks, their include files and `.frd` results (subfolders included); the server reads everything under it and only ever adds new files there. You do not have to name it:
-
-- Claude Code and the `agy` CLI start the server in the folder you opened, and that folder is used.
-- Clients that report their workspace folders (the MCP `roots` feature) get those folders, and the server follows when you open another one.
-- Otherwise, just tell the assistant where the models are ("my models are in /path/to/project"); it calls `models_folder` to switch.
-- The root of the disk, your home folder itself and system folders are never used, so a client that starts the server in `/` gets no folder until you name one.
-
-**Claude Code**: register once from a terminal:
+Register the server with your client. For Claude Code:
 
 ```bash
 claude mcp add --scope user calculix -- /abs/path/to/calculix-mcp --ccx mumps=/abs/path/to/CalculiX
 ```
 
-or put this in a `.mcp.json` file at the root of your project, to share the setup with the project:
+or share it with a project in `.mcp.json`:
 
 ```json
 {
@@ -122,78 +80,34 @@ or put this in a `.mcp.json` file at the root of your project, to share the setu
 }
 ```
 
-Check that it is connected with `/mcp` inside Claude Code.
+The same block works for Antigravity (`~/.gemini/config/mcp_config.json`), VS Code with GitHub Copilot (`.mcp.json` or `~/.copilot/mcp-config.json`) and Claude Desktop. Add `--cgx PATH` to enable geometry and meshing. The models folder follows the folder you open, or you can tell the assistant where your models are.
 
-Optional: `--root /abs/path/to/my-models` pins the models folder for the whole session (the assistant can then only narrow it to a subfolder), for example `"args": ["--root", "/abs/path/to/my-models", "--ccx", "mumps=/abs/path/to/CalculiX"]`. `--allow /abs/path/to/projects` (repeatable) lets the folder follow you but only inside those folders.
-
-**Antigravity**: add the same `mcpServers` block to `~/.gemini/config/mcp_config.json`, then reload the MCP servers in Antigravity.
-
-Claude Desktop reads the same block from its `claude_desktop_config.json`; this setup has not been tested yet.
-
-### 3. Talk to it
-
-Ask in plain language; the agent picks the tools. Paths are relative to the models folder.
+Then ask in plain language:
 
 ```text
-What does run/bracket.inp do? Any missing includes?
 Check the mesh of run/bracket.inp before I solve it.
-Save the bolt hole along z through (40, 0), radius 6, as a surface called BORE.
 Solve run/bracket.inp with mumps and tell me when it is done.
 What is the peak von Mises stress on set FILLET, and at which nodes?
 ```
 
-The server never edits your deck: selections go to new include files, and solves run on a copy in `<models folder>/.calculix-mcp/runs/`.
-
-### Platforms
-
-On Debian and Ubuntu, stock CalculiX is the `calculix-ccx` package (binary `/usr/bin/ccx`, so `--ccx ccx=/usr/bin/ccx`). The configuration is the same JSON on every operating system; only file locations and path syntax differ (on Windows, write paths in JSON as `C:/cases` or `C:\\cases`). The server is developed and tested on macOS. Linux uses the same mechanisms and is expected to work but has not been tested yet. On Windows it is untested, and stopping a solver ends only its direct process, not the processes it started.
-
-All flags are documented in the [server README](crates/calculix-mcp/README.md#run-and-flags).
+All flags, client setups, platform notes, the safety model and limitations are in the [server README](crates/calculix-mcp/README.md).
 
 ## Tools
 
-| Stage | Tool | What it does |
-|---|---|---|
-| Setup | `models_folder` | Show or change the folder with your models that all other tools work in |
-| Decks | `inp_inspect` | Summary of a deck across its `*INCLUDE` tree: flags, keyword census, step plan, includes, sets, materials |
-| | `inp_cards` | Specific keyword cards with file, line and data lines, without loading the whole deck |
-| | `inp_consolidate` | Flatten a multi-file deck into one file |
-| | `inp_edit` | Located edits (parameters, data lines, cards, steps) written to new files, with a diff and a re-check |
-| Geometry | `cgx_run_batch` | Run a CalculiX GraphiX script headlessly to build geometry and meshes; returns the files and a mesh summary |
-| | `cgx_help` | CalculiX GraphiX command reference with verified examples |
-| Mesh | `mesh_check` | Parts, free nodes, inverted elements, aspect ratios, volume, mass and centre of gravity, undefined or empty sets |
-| | `mesh_select` | Select exterior faces by geometry and save them as a `*SURFACE` or `*NSET` include file |
-| | `mesh_contact_pairs` | Find faces of different parts that face each other within a gap; save slave and master surfaces and a contact-card template |
-| Solve | `ccx_solve` | Start a background solve on a private copy of the deck |
-| | `ccx_job_status` | State, progress, memory, convergence verdict and result files; waits for a change instead of polling |
-| | `ccx_job_cancel` | Stop a job and every process it started |
-| | `ccx_job_list` | Recent and past jobs with state and run-directory size |
-| | `ccx_diagnose` | Explain convergence from `.sta`, `.cvg` and `.json` |
-| Results | `frd_summary` | Steps, frequencies, fields and whole-model peaks with node ids |
-| | `frd_sets` | Node and element sets available for queries |
-| | `frd_query_set` | Exact stress invariants or displacement extrema on one set, per step, with the most loaded nodes |
+| Stage | Tools |
+|---|---|
+| Setup | `models_folder` |
+| Decks | `inp_inspect`, `inp_cards`, `inp_consolidate`, `inp_edit` |
+| Geometry | `cgx_run_batch`, `cgx_help` |
+| Mesh | `mesh_check`, `mesh_select`, `mesh_contact_pairs` |
+| Solve | `ccx_solve`, `ccx_job_status`, `ccx_job_cancel`, `ccx_job_list`, `ccx_diagnose` |
+| Results | `frd_summary`, `frd_sets`, `frd_query_set` |
 
-A plain-language guide to every tool, with an example prompt and a real result for each, is in [docs/TOOLS.md](docs/TOOLS.md).
-
-## Built to be trusted
-
-- **Confined.** Every path must resolve inside `--root`; `..` and symlink escapes are rejected.
-- **Read-only by default.** Decks are never edited. Selections are written to new include files, and solves run in `<root>/.calculix-mcp/runs/<job_id>/`.
-- **No shell.** The solver is started with an explicit argument vector, from a binary named at startup, with a cleared environment.
-- **No orphans.** Cancel, timeout and client disconnect end with the solver's whole process group gone, including processes that ignore SIGTERM. After a server crash, the next start finds and stops orphaned solvers.
-- **Honest output.** Results carry notes when a number needs context: deck units, normalised mode shapes, upper-bound amplitudes, heuristic thresholds.
-
-## Performance
-
-Release build, open plus stress and displacement histories over the whole model:
-
-| Result file | Full parse | Lazy index (`calculix-mcp`) | Peak memory, full to lazy |
-|---|---|---|---|
-| Compressor rotor, 409 MB ASCII, 342,139 nodes | 1.97 s | 0.62 s | 808 MB to 456 MB |
+What each tool does, with an example prompt and a real result: [docs/TOOLS.md](docs/TOOLS.md).
 
 ## cgx-top: results in your terminal
 
-The repository also ships `cgx-top`, a small terminal tool for checking results by hand: no AI client and nothing to configure, and it works over SSH. It uses the same Rust library as the server.
+`cgx-top` is a small terminal tool on the same Rust library: no AI client, nothing to configure, works over SSH.
 
 ```bash
 cargo build --release -p cgx-top
@@ -202,7 +116,6 @@ cgx-top results.frd                                 # interactive dashboard
 cgx-top --summary results.frd                       # steps, fields, sets and extrema
 cgx-top results.frd deck.inp -S BLADE_ROOT --mises  # von Mises history on a set (--principal, --disp, --csv)
 cgx-top check deck.inp                              # include tree, sets, materials
-cgx-top consolidate deck.inp                        # flatten *INCLUDE files into one deck
 cgx-top diagnose run/job                            # convergence verdict from .sta and .cvg
 ```
 
@@ -241,36 +154,13 @@ The dashboard on a modal beam with step 3 selected (a capture of the real screen
  [W/S] Step   [A/D] Rotate Set   [0] All Nodes   [1-9] Jump Step   [Space] Set List   [Tab] Field   [?] Help   [q/Esc]
 ```
 
-| Key | Action |
-|---|---|
-| `W` / `S` or arrows | Previous / next step, mode or increment |
-| `A` / `D` or arrows | Previous / next node set |
-| `0` | Back to all nodes |
-| `1` to `9` | Jump to step 1 to 9 |
-| `Space` / `Enter` | Search and pick a set |
-| `Tab` | Show all fields, displacement only or stress only |
-| `g` / `G`, `PgUp` / `PgDn` | First / last step, 5 steps back / forward |
-| `?` | Help |
-| `q` / `Esc` | Quit |
-
-Both tools are built on `cgx-core`, which can also be used as a library: lazy `.frd` index (ASCII and binary), `.inp` card scanner and mesh reader, exterior faces and selections, mesh checks, `.sta`/`.cvg` parsers with the convergence rules, and stress invariants.
+Press `?` in the dashboard for the key bindings.
 
 ## Roadmap
 
-- [x] Deck inspection, mesh checks and face selection
-- [x] Background solver jobs with cleanup, quota and crash recovery
-- [x] Convergence diagnosis from `.sta` and `.cvg`
-- [x] Solving with stock CalculiX and with CalculiX MultiSolver
-- [x] Exact result queries on large ASCII and binary `.frd` files, including cyclic-symmetry modes
-- [x] Contact pair detection between parts
-- [x] Located, reviewable deck edits written to new files with a diff
-- [x] Geometry and meshing through CalculiX GraphiX batch scripts
-- [x] CI on Linux, macOS and Windows, with an end-to-end solve
 - [ ] Contour images rendered by CalculiX GraphiX
 - [ ] `cgx-top --watch`: live view of a running solve
 - [ ] Windows process-tree handling for cancelled solves
-
-Limitations and design notes: [server README](crates/calculix-mcp/README.md#limitations), [`docs/`](docs).
 
 ## License
 

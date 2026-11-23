@@ -82,6 +82,12 @@ Antigravity (`~/.gemini/config/mcp_config.json`) or Claude Desktop (`claude_desk
 
 Use absolute paths. Other MCP clients take the same command and arguments.
 
+VS Code (GitHub Copilot) reads the same `mcpServers` block from `.mcp.json` at the root of the workspace (the file Claude Code also reads) or, for all workspaces, from `~/.copilot/mcp-config.json`. Run **MCP: List Servers** from the command palette to start and trust it. The older `.vscode/mcp.json` format (top-level key `servers`) also works but is deprecated. The VS Code and Claude Desktop setups have not been tested yet.
+
+`--root` is optional. Without it the models folder follows your project: Claude Code and the `agy` CLI use the folder you opened, clients with MCP `roots` use their workspace folders, and otherwise you tell the assistant where the models are and it calls `models_folder`. The root of the disk, the home folder itself and system folders are never used.
+
+On Debian and Ubuntu, stock CalculiX is the `calculix-ccx` package (`--ccx ccx=/usr/bin/ccx`). On Windows, write paths in JSON as `C:/cases` or `C:\\cases`. The server is developed and tested on macOS; Linux is expected to work, and on Windows stopping a solver ends only its direct process.
+
 ## Tools
 
 | Tool | Description |
@@ -311,7 +317,7 @@ The directory now holds `['TOP.sur', 'cube.inp', 'mesh']`, and `TOP.sur` contain
 
 ## Performance
 
-Measured on the development machine (release build, 2026-11-16, `docs/implementation_plan.md`). Each figure is open plus the stress and displacement histories over the whole model:
+Measured on the development machine (release build). Each figure is open plus the stress and displacement histories over the whole model:
 
 | File | Full parser | Lazy index | Peak RSS full, lazy |
 |---|---|---|---|
