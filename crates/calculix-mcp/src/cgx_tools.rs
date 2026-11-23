@@ -1201,7 +1201,7 @@ esac
     // ---------- the real cgx (run with: cargo test -p calculix-mcp -- --ignored cgx) ----------
 
     fn real_cgx() -> Option<Arc<CgxConfig>> {
-        let bin = PathBuf::from(std::env::var("CGX_BIN").unwrap_or_else(|_| "/Users/carlo/code/CalculiX/cgx/bin/cgx_glfw".into()));
+        let bin = std::env::var_os("CGX_BIN").map(PathBuf::from).unwrap_or_else(|| crate::paths::test_data("cgx/bin/cgx_glfw"));
         if !bin.is_file() {
             eprintln!("skipped: no cgx binary at {} (set CGX_BIN)", bin.display());
             return None;

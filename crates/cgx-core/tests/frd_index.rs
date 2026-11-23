@@ -1,5 +1,7 @@
 //! `FrdIndex` (lazy) must agree with `FrdParserEngine::parse_all` (full materialisation).
 
+mod common;
+
 use cgx_core::{FrdIndex, FrdModel, FrdParserEngine, StressTensor};
 use std::collections::HashSet;
 use std::path::Path;
@@ -358,15 +360,17 @@ fn step_parameters_and_complex_results() {
 // ---------- real files (skipped when absent) ----------
 
 const REAL_FILES: [&str; 4] = [
-    "/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/test_NewLib/beam_benchmark.frd",
-    "/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/test/beam_modal.frd",
-    "/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/cgx_2.23/examples/result.frd",
-    "/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/test/beam20p.frd",
+    "ccx/CalculiX-CrunchiX-MultiSolver/test_NewLib/beam_benchmark.frd",
+    "cgx/CalculiX-CGX-New3D/test/beam_modal.frd",
+    "cgx/CalculiX-CGX-New3D/cgx_2.23/examples/result.frd",
+    "cgx/CalculiX-CGX-New3D/test/beam20p.frd",
 ];
 
 #[test]
 fn real_files_match_full_parser() {
-    for path in REAL_FILES {
+    for rel in REAL_FILES {
+        let path = common::data(rel);
+        let path = path.to_str().unwrap();
         if !Path::new(path).exists() {
             eprintln!("Skipping: {} not found", path);
             continue;
@@ -383,18 +387,19 @@ fn real_files_match_full_parser() {
     }
 }
 
-const CYCLIC_FILE: &str =
-    "/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.frd";
+const CYCLIC_FILE: &str = "ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.frd";
 
 /// Cyclic symmetry run: one static step, then three modes of nodal diameter 5 stored as complex
 /// results (STRESS + STRESSI, ERROR + ERRORI, PDISP).
 #[test]
 fn cyclic_modal_file_metadata() {
-    if !Path::new(CYCLIC_FILE).exists() {
-        eprintln!("Skipping: {} not found", CYCLIC_FILE);
+    let cyclic = common::data(CYCLIC_FILE);
+    let cyclic = cyclic.to_str().unwrap();
+    if !Path::new(cyclic).exists() {
+        eprintln!("Skipping: {} not found", cyclic);
         return;
     }
-    let index = FrdIndex::open(CYCLIC_FILE).expect("index");
+    let index = FrdIndex::open(cyclic).expect("index");
     let steps = index.steps();
     assert_eq!(steps.len(), 4);
     assert_eq!((steps[0].mode, steps[0].nodal_diameter, steps[0].pstep), (None, None, Some((1, 1, 1))));
@@ -424,7 +429,7 @@ fn cyclic_modal_file_metadata() {
 /// Timing comparison. Run one at a time under `/usr/bin/time -l` for peak memory:
 /// `FRD=<file> cargo test --release -p cgx-core --test frd_index bench_lazy -- --ignored --nocapture`
 fn bench_file() -> Option<String> {
-    let path = std::env::var("FRD").unwrap_or_else(|_| REAL_FILES[0].to_string());
+    let path = std::env::var("FRD").unwrap_or_else(|_| common::data(REAL_FILES[0]).to_string_lossy().into_owned());
     Path::new(&path).exists().then_some(path)
 }
 

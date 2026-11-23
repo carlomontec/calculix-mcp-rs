@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn real_beam_modal_frequency_to_12_modes() {
-        let src = Path::new("/Users/carlo/code/CalculiX/test/beam_modal.inp");
+        let src = &crate::paths::test_data("test/beam_modal.inp");
         if !src.exists() {
             return;
         }
@@ -485,7 +485,7 @@ mod tests {
         assert_eq!(read_card_data(scan.find("FREQUENCY", None)[0], 3).unwrap(), ["12"]);
         assert!(out.check.ok && out.check.census_delta.is_empty());
         // Optionally solve the edited copy: 12 modes must come out.
-        let ccx = Path::new("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/build_mumps/CalculiX");
+        let ccx = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/build_mumps/CalculiX");
         if ccx.exists() && std::env::var_os("INP_EDIT_SOLVE").is_some() {
             let work = dir.join("root");
             let status = std::process::Command::new(ccx).args(["-j", "beam_modal_edit"]).current_dir(&work).output().unwrap();
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn real_rotor_deck_set_param_and_append_step_reference_includes() {
-        let src = Path::new("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor");
+        let src = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor");
         if !src.join("lavffcyc.inp").exists() {
             return;
         }

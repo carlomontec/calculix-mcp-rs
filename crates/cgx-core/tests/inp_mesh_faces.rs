@@ -1,3 +1,4 @@
+mod common;
 use cgx_core::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -265,9 +266,7 @@ fn writers_round_trip() {
 
 #[test]
 fn real_rotor_mesh() {
-    let p = Path::new(
-        "/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp",
-    );
+    let p = &common::data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
     if !p.exists() {
         eprintln!("skipped: {} not found", p.display());
         return;

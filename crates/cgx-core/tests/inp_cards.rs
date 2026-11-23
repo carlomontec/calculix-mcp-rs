@@ -1,3 +1,4 @@
+mod common;
 use cgx_core::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -421,9 +422,7 @@ fn limit_max_total_bytes() {
 
 #[test]
 fn real_deck_lavffcyc() {
-    let p = Path::new(
-        "/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp",
-    );
+    let p = &common::data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
     if !p.exists() {
         eprintln!("skipping: {} not found", p.display());
         return;

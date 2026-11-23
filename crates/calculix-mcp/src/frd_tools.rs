@@ -666,7 +666,6 @@ fn node_values(ds: &DenseDataset, by: TopBy, ids: &HashSet<u32>) -> Option<Vec<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn step_selection() {
@@ -697,7 +696,7 @@ mod tests {
     /// End-to-end on a real result file; skipped when the sample is absent.
     #[test]
     fn real_file_summary_sets_and_query() {
-        let dir = PathBuf::from("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/test_NewLib");
+        let dir = crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/test_NewLib");
         if !dir.join("beam_benchmark.frd").exists() {
             eprintln!("Skipping: beam_benchmark.frd not found");
             return;
@@ -738,7 +737,7 @@ mod tests {
     /// Cyclic symmetry modal run with complex results; skipped when the sample is absent.
     #[test]
     fn cyclic_file_summary_has_modes_and_pdisp_amplitude() {
-        let dir = PathBuf::from("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor");
+        let dir = crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor");
         if !dir.join("lavffcyc.frd").exists() {
             eprintln!("Skipping: lavffcyc.frd not found");
             return;

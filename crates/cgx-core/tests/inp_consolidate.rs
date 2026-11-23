@@ -1,3 +1,4 @@
+mod common;
 use cgx_core::*;
 use std::collections::BTreeMap;
 use std::fs;
@@ -158,9 +159,7 @@ fn census(scan: &InpScan) -> BTreeMap<String, usize> {
 
 #[test]
 fn lavffcyc_consolidation_matches_card_census() {
-    let root = Path::new(
-        "/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp",
-    );
+    let root = &common::data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
     if !root.exists() {
         eprintln!("skipping: {} not found", root.display());
         return;

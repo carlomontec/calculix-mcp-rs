@@ -1,9 +1,9 @@
+mod common;
 use cgx_core::{parse_frd_file, ElementType, FieldType};
-use std::path::PathBuf;
 
 #[test]
 fn test_parse_beam_modal() {
-    let test_path = PathBuf::from("/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/test/beam_modal.frd");
+    let test_path = common::data("cgx/CalculiX-CGX-New3D/test/beam_modal.frd");
     if !test_path.exists() {
         eprintln!("Skipping test: beam_modal.frd not found at {:?}", test_path);
         return;

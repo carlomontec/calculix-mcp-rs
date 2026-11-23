@@ -179,6 +179,16 @@ fn siblings(path: &Path, exts: &[&str]) -> Vec<String> {
     names
 }
 
+/// Directory with the CalculiX checkouts and example models used by the tests on real files:
+/// `$CALCULIX_DATA`, or else the directory that contains this workspace. Tests skip when a file is absent.
+#[cfg(test)]
+pub(crate) fn test_data(rel: &str) -> PathBuf {
+    std::env::var_os("CALCULIX_DATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
+        .join(rel)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

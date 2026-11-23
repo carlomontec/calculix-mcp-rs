@@ -1,3 +1,4 @@
+mod common;
 use cgx_core::*;
 use std::fs;
 use std::path::PathBuf;
@@ -320,7 +321,7 @@ fn closed_surface_identity_and_surface_integral_volume() {
         assert!(rel_vol_err < 1e-9, "{label} volume mismatch {rel_vol_err}");
     }
 
-    let rotor = PathBuf::from("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
+    let rotor = common::data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
     if !rotor.exists() {
         return;
     }

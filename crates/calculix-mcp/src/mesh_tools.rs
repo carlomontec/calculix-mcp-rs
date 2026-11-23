@@ -972,7 +972,7 @@ mod tests {
     #[test]
     #[allow(clippy::print_stdout)]
     fn real_decks_reference_nodes_and_parts() {
-        let base = Path::new("/Users/carlo/code/CalculiX");
+        let base = &crate::paths::test_data("");
         let hinge = base.join("CalculixExamples/examples/other/Kaffeeheblerei_hinge.inp");
         if hinge.exists() {
             let roots = Roots::new(vec![hinge.parent().unwrap().to_path_buf()]).unwrap();
@@ -998,7 +998,7 @@ mod tests {
     #[test]
     #[allow(clippy::print_stdout)]
     fn rotor_deck_check() {
-        let deck = Path::new("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
+        let deck = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
         if !deck.exists() {
             eprintln!("rotor deck not present, skipping");
             return;

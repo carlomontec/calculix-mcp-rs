@@ -1,7 +1,8 @@
+mod common;
 use cgx_core::*;
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -255,7 +256,7 @@ fn grid_equals_brute_force_on_random_blocks() {
 
 // ---------- real decks ----------
 
-const CCX_TEST: &str = "/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/test";
+const CCX_TEST: &str = "ccx/CalculiX-CrunchiX-MultiSolver/test";
 
 /// (slave, master) names of the first data line of each *CONTACT PAIR card.
 fn deck_contact_pairs(scan: &InpScan) -> Vec<(String, String)> {
@@ -317,7 +318,7 @@ fn real_decks_cover_their_own_contact_surfaces() {
     let decks: Vec<(&str, Partition)> =
         ["contact2", "punch1", "potied", "beamcontact"].into_iter().map(|n| (n, Partition::Component)).collect();
     let mut failed: Vec<String> = Vec::new();
-    let base = Path::new(CCX_TEST);
+    let base = &common::data(CCX_TEST);
     if !base.exists() {
         eprintln!("ccx test decks not present, skipping");
         return;
@@ -395,7 +396,7 @@ fn real_decks_cover_their_own_contact_surfaces() {
 #[test]
 #[allow(clippy::print_stdout)]
 fn rotor_single_part_is_fast_and_finds_nothing() {
-    let deck = Path::new("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
+    let deck = &common::data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
     if !deck.exists() {
         eprintln!("rotor deck not present, skipping");
         return;

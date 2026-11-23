@@ -1,8 +1,8 @@
+mod common;
 use cgx_core::{
     consolidate_inp, inspect_inp, parse_frd_file,
     parse_sets_from_str,
 };
-use std::path::PathBuf;
 
 #[test]
 fn test_parse_sets_from_str() {
@@ -31,7 +31,7 @@ fn test_parse_sets_from_str() {
 
 #[test]
 fn test_consolidate_beam_tet() {
-    let inp_path = PathBuf::from("/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/test_newtetgen/05_end_to_end_ccx_simulation/beam_tet.inp");
+    let inp_path = common::data("cgx/CalculiX-CGX-New3D/test_newtetgen/05_end_to_end_ccx_simulation/beam_tet.inp");
     if !inp_path.exists() {
         eprintln!("Skipping test: beam_tet.inp not found");
         return;
@@ -47,7 +47,7 @@ fn test_consolidate_beam_tet() {
 
 #[test]
 fn test_inspect_beam20p_dense() {
-    let inp_path = PathBuf::from("/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/test/beam20p_dense.inp");
+    let inp_path = common::data("cgx/CalculiX-CGX-New3D/test/beam20p_dense.inp");
     if !inp_path.exists() {
         eprintln!("Skipping test: beam20p_dense.inp not found");
         return;
@@ -65,7 +65,7 @@ fn test_inspect_beam20p_dense() {
 
 #[test]
 fn test_result_frd_stress_invariants() {
-    let frd_path = PathBuf::from("/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/cgx_2.23/examples/result.frd");
+    let frd_path = common::data("cgx/CalculiX-CGX-New3D/cgx_2.23/examples/result.frd");
     if !frd_path.exists() {
         eprintln!("Skipping test: result.frd not found");
         return;
@@ -97,7 +97,7 @@ fn test_result_frd_stress_invariants() {
 
 #[test]
 fn test_beam20p_companion_sets() {
-    let frd_path = PathBuf::from("/Users/carlo/code/CalculiX/cgx/CalculiX-CGX-New3D/test/beam20p.frd");
+    let frd_path = common::data("cgx/CalculiX-CGX-New3D/test/beam20p.frd");
     if !frd_path.exists() {
         eprintln!("Skipping test: beam20p.frd not found");
         return;

@@ -587,7 +587,7 @@ mod tests {
     #[test]
     #[allow(clippy::print_stdout)]
     fn rotor_deck_runs_quickly() {
-        let deck = Path::new("/Users/carlo/code/CalculiX/ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
+        let deck = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
         if !deck.exists() {
             eprintln!("rotor deck not present, skipping");
             return;
