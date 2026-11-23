@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Geometry and meshing through CalculiX GraphiX: `cgx_run_batch` runs a `.fbd` script with
 //! `cgx -bg` in a private run directory; `cgx_help` returns the verified command reference.
 //!

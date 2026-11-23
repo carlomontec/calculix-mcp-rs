@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Convergence diagnosis from `.sta` / `.cvg` telemetry (rules N1, L1, S1, W*, C*, B*, D*).
 //!
 //! All numeric thresholds are ASSUMED (see `Thresholds`) and must be recalibrated on real

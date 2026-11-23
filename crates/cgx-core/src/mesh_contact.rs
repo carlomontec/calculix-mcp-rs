@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Contact candidates between parts of a solid mesh: exterior faces of different groups
 //! (connected components, element sets or materials) that face each other within a gap.
 //!

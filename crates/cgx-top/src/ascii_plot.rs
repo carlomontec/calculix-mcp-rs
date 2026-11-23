@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! High-resolution Braille / ASCII plot renderer for CalculiX time histories.
 
 /// Renders a series of scalar values into a vector of strings suitable for printing

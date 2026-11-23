@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! `.sta` ("SUMMARY OF JOB INFORMATION") parser.
 
 use super::{complete_lines, float_token};

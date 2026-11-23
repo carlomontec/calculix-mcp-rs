@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! `.cvg` ("SUMMARY OF C0NVERGENCE INFORMATION") parser.
 
 use super::{complete_lines, float_token};

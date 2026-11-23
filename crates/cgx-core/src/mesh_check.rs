@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Pre-solve sanity checks on a mesh read from an `.inp` deck: connectivity, element volume
 //! and shape, mass properties and undefined set or material references.
 //!

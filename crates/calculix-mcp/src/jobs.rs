@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Background solver jobs: one supervisor task per job, one job running at a time.
 //!
 //! Guarantees:

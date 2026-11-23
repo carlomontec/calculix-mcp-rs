@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Result tools: `frd_summary`, `frd_sets`, `frd_query_set`.
 //!
 //! Every call opens a fresh `FrdIndex` (headers only) and loads just the datasets it needs.

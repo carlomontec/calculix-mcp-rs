@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Low-overhead streaming byte cursor capable of switching between ASCII text lines and raw binary byte slices.
 
 pub struct ByteCursor<'a> {

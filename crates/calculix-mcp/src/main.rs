@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! `calculix-mcp`: native MCP server for CalculiX decks, solver telemetry and results.
 //!
 //! stdout carries JSON-RPC only; all diagnostics go to stderr.

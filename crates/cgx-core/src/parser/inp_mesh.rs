@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Mesh reader for CalculiX `.inp` decks.
 //!
 //! Reads `*NODE`, `*ELEMENT`, `*NSET`, `*ELSET` and element-type `*SURFACE` cards across the

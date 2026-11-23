@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 use crate::ascii_plot::render_ascii_plot;
 use crate::tui::app::{ActiveFieldView, AppState};
 use ratatui::{

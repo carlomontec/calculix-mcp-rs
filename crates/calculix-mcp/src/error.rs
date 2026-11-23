@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Tool error model: every failure is a structured, actionable tool result (`isError: true`).
 
 use rmcp::handler::server::tool::IntoCallToolResult;

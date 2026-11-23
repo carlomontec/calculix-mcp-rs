@@ -4,7 +4,7 @@
 [![Rust](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
 [![MCP](https://img.shields.io/badge/Model_Context_Protocol-server-6E56CF.svg)](https://modelcontextprotocol.io/)
 [![CalculiX](https://img.shields.io/badge/CalculiX-native-2E7D32.svg)](http://www.calculix.de/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 **Let an AI agent work on real CalculiX models.** `calculix-mcp` is a Model Context Protocol server that gives Claude, Antigravity or any MCP client direct access to your finite-element work: it builds geometry and meshes through CalculiX GraphiX, reads decks with their whole `*INCLUDE` tree and edits them into new files, checks the mesh, selects faces and finds contact pairs, runs the solver in the background, explains convergence problems, and quotes exact results with node ids from ASCII or binary `.frd` files.
 
@@ -164,4 +164,6 @@ Press `?` in the dashboard for the key bindings.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Copyright (C) 2026 Carlo Daniel Monjaraz Tec.
+
+Licensed under the [GNU Affero General Public License v3.0](LICENSE) or later. You may use, modify and sell this software. If you distribute it, or let people use a modified version over a network, you must make the complete source available under the same license and keep the copyright notices.

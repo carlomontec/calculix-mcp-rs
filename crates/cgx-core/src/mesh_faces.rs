@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Exterior faces of solid meshes read from `.inp` decks, face selection helpers and
 //! `*SURFACE` / `*NSET` card writers.
 

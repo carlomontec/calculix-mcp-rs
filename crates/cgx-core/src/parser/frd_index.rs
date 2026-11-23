@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Lazy FRD access: index the file once (mesh + dataset headers), load result datasets on demand.
 //!
 //! `parse_frd_file` materialises every nodal value of every dataset. `FrdIndex` reads only the

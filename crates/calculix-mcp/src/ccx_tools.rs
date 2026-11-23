@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Solver tools: `ccx_solve`, `ccx_job_status`, `ccx_job_cancel` (background jobs, see `jobs.rs`)
 //! and `ccx_diagnose`, which explains convergence from `<job>.sta` / `<job>.cvg` / `<job>.json`.
 

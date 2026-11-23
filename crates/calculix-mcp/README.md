@@ -356,4 +356,4 @@ The lazy figure for resident memory is mostly memory-mapped file pages, which th
 
 ## Licence
 
-MIT, as declared in the workspace `Cargo.toml`. See `LICENSE` in the repository root.
+AGPL-3.0-or-later, as declared in the workspace `Cargo.toml`. Copyright (C) 2026 Carlo Daniel Monjaraz Tec. See `LICENSE` in the repository root.

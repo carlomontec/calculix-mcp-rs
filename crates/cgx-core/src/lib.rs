@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! `cgx-core`: High-performance FEA data structures, invariants, and FRD parsing for CalculiX.
 
 pub mod model;

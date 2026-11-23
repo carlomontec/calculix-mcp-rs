@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! The models folder: where the user's decks, meshes and results live, and the folder every tool
 //! resolves relative paths against.
 //!

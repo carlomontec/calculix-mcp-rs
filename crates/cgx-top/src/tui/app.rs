@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 use cgx_core::{
     compute_dataset_disp_invariants, compute_dataset_stress_invariants,
     FrdModel,

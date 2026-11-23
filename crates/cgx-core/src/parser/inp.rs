@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Parser, consolidator, and inspection engine for CalculiX / Abaqus `.inp` and `.nam` decks.
 
 use crate::parser::inp_cards::ScanLimits;

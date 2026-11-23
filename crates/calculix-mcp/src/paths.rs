@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Carlo Daniel Monjaraz Tec
+
 //! Path confinement: every path a tool touches must resolve inside an allowed root.
 
 use crate::error::ToolError;
