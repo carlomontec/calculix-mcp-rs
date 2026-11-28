@@ -1,0 +1,55 @@
+name: Bug report
+description: A tool gives a wrong result, an error, or the server misbehaves
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security problems, use the Security tab's "Report a vulnerability" instead of this form.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The tool you (or your AI client) called, its arguments, and the reply. Paste the JSON if you have it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: A small deck or result file helps most. Attach it or link to it, and remove anything confidential first.
+  - type: input
+    id: version
+    attributes:
+      label: calculix-mcp version or commit
+      placeholder: "0.1.0, or the output of git rev-parse --short HEAD"
+    validations:
+      required: true
+  - type: input
+    id: solver
+    attributes:
+      label: Solver
+      placeholder: "CalculiX MultiSolver (mumps), stock ccx 2.22, none"
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      placeholder: "Claude Code, Claude Desktop, Antigravity, VS Code"
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, Windows, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log (stderr)
+      render: text

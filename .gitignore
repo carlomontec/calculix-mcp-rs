@@ -26,15 +26,3 @@
 .calculix-mcp/
 .mcp.json
 .claude/worktrees/
-
-# Local notes and agent configuration (not part of the project)
-COLLOQUIUM_IDEAS.md
-docs/HANDOFF.md
-docs/MCP_FACTS.md
-docs/MCP_SPEC.md
-docs/implementation_plan.md
-docs/CGX_CHANNEL.md
-AGENTS.md
-CLAUDE.md
-.claude/
-.github/agents/
