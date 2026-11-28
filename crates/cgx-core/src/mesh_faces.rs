@@ -179,8 +179,8 @@ pub fn exterior_faces(mesh: &InpMesh) -> Vec<Face> {
         key[..ids.len()].copy_from_slice(&ids);
         Some(key)
     };
-    for ei in 0..mesh.elements.len() {
-        if let Some((table, _)) = face_table(mesh.elements[ei].elem_type) {
+    for (ei, el) in mesh.elements.iter().enumerate() {
+        if let Some((table, _)) = face_table(el.elem_type) {
             for f in 0..table.len() {
                 if let Some(k) = key_of(ei, f) {
                     *count.entry(k).or_insert(0) += 1;
@@ -189,8 +189,8 @@ pub fn exterior_faces(mesh: &InpMesh) -> Vec<Face> {
         }
     }
     let mut out = Vec::new();
-    for ei in 0..mesh.elements.len() {
-        if let Some((table, _)) = face_table(mesh.elements[ei].elem_type) {
+    for (ei, el) in mesh.elements.iter().enumerate() {
+        if let Some((table, _)) = face_table(el.elem_type) {
             for f in 0..table.len() {
                 if key_of(ei, f).is_some_and(|k| count[&k] == 1) {
                     if let Some(face) = build_face(mesh, ei, f as u8 + 1) {

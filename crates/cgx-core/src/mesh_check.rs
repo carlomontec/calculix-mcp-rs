@@ -113,9 +113,9 @@ pub fn components(mesh: &InpMesh) -> Vec<Vec<u32>> {
         }
     }
     let mut groups: HashMap<usize, Vec<u32>> = HashMap::new();
-    for i in 0..n {
+    for (i, e) in mesh.elements.iter().enumerate().take(n) {
         let r = find(&mut parent, i);
-        groups.entry(r).or_default().push(mesh.elements[i].id);
+        groups.entry(r).or_default().push(e.id);
     }
     let mut out: Vec<Vec<u32>> = groups.into_values().collect();
     for g in &mut out {

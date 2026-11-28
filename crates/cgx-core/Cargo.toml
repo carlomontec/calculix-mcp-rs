@@ -6,7 +6,6 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "CalculiX file formats in Rust: lazy ASCII and binary .frd reader, .inp deck parser and editor, mesh checks, face selection, contact search and solver telemetry"

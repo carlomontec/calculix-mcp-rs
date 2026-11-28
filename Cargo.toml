@@ -13,10 +13,8 @@ rust-version = "1.89"
 authors = ["Carlo Daniel Monjaraz Tec"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/carlomontec/calculix-mcp-rs"
-homepage = "https://github.com/carlomontec/calculix-mcp-rs"
 keywords = ["calculix", "fea", "mcp", "finite-element", "cae"]
 categories = ["science", "command-line-utilities", "parser-implementations"]
-description = "MCP server and Rust toolkit that let AI agents inspect, check, solve and post-process CalculiX models"
 
 [workspace.lints.clippy]
 # Parsers and report builders pass many related values and return wide tuples on purpose.
