@@ -9,12 +9,7 @@ static COUNTER: AtomicUsize = AtomicUsize::new(0);
 /// Create a unique empty temp directory for one test.
 fn tmp_dir(name: &str) -> PathBuf {
     let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!(
-        "cgx_inp_cards_{}_{}_{}",
-        std::process::id(),
-        n,
-        name
-    ));
+    let dir = std::env::temp_dir().join(format!("cgx_inp_cards_{}_{}_{}", std::process::id(), n, name));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -71,21 +66,15 @@ fn comments_and_data_counts() {
     let node = &s.find("NODE", None)[0];
     assert_eq!(node.data_lines, 2);
     assert_eq!(node.line, 2);
-    assert_eq!(
-        read_card_data(node, 100).unwrap(),
-        vec!["1, 0., 0., 0.", "2, 1., 0., 0."]
-    );
+    assert_eq!(read_card_data(node, 100).unwrap(), vec!["1, 0., 0., 0.", "2, 1., 0., 0."]);
     assert_eq!(s.total_lines, BASIC.lines().count());
 }
 
 #[test]
 fn header_continuation() {
     let d = tmp_dir("cont");
-    let p = write(
-        &d,
-        "a.inp",
-        "*ELEMENT, TYPE=C3D8,\n** comment inside header\n  ELSET=EALL\n1, 1, 2\n*NODE\n1,0,0,0\n",
-    );
+    let p =
+        write(&d, "a.inp", "*ELEMENT, TYPE=C3D8,\n** comment inside header\n  ELSET=EALL\n1, 1, 2\n*NODE\n1,0,0,0\n");
     let s = scan(&p);
     assert_eq!(s.cards.len(), 2);
     let e = &s.cards[0];
@@ -93,10 +82,7 @@ fn header_continuation() {
     assert_eq!(e.line, 1);
     assert_eq!(
         e.params,
-        vec![
-            ("TYPE".to_string(), Some("C3D8".to_string())),
-            ("ELSET".to_string(), Some("EALL".to_string()))
-        ]
+        vec![("TYPE".to_string(), Some("C3D8".to_string())), ("ELSET".to_string(), Some("EALL".to_string()))]
     );
     assert_eq!(e.data_lines, 1);
     assert_eq!(read_card_data(e, 10).unwrap(), vec!["1, 1, 2"]);
@@ -106,11 +92,8 @@ fn header_continuation() {
 #[test]
 fn parameter_parsing() {
     let d = tmp_dir("params");
-    let p = write(
-        &d,
-        "a.inp",
-        "*step , nlgeom , Inc = 100 ,unsymm=yes\n*Cyclic   Symmetry  Model, n=12 , TIE = tie1\n",
-    );
+    let p =
+        write(&d, "a.inp", "*step , nlgeom , Inc = 100 ,unsymm=yes\n*Cyclic   Symmetry  Model, n=12 , TIE = tie1\n");
     let s = scan(&p);
     assert_eq!(s.cards[0].keyword, "STEP");
     assert_eq!(
@@ -124,10 +107,7 @@ fn parameter_parsing() {
     assert_eq!(s.cards[1].keyword, "CYCLIC SYMMETRY MODEL");
     assert_eq!(
         s.cards[1].params,
-        vec![
-            ("N".to_string(), Some("12".to_string())),
-            ("TIE".to_string(), Some("tie1".to_string())),
-        ]
+        vec![("N".to_string(), Some("12".to_string())), ("TIE".to_string(), Some("tie1".to_string())),]
     );
 }
 
@@ -139,10 +119,7 @@ fn crlf_offsets() {
     let s = scan(&p);
     let node = &s.find("NODE", None)[0];
     assert_eq!(node.data_lines, 2);
-    assert_eq!(
-        read_card_data(node, 100).unwrap(),
-        vec!["1, 0., 0., 0.", "2, 1., 0., 0."]
-    );
+    assert_eq!(read_card_data(node, 100).unwrap(), vec!["1, 0., 0., 0.", "2, 1., 0., 0."]);
     let el = &s.find("*element", None)[0];
     assert_eq!(read_card_data(el, 100).unwrap(), vec!["1, 1, 2, 3, 4, 5, 6, 7, 8"]);
     // Offset must point exactly at the first data line.
@@ -184,10 +161,7 @@ fn nested_includes_three_levels() {
     assert_eq!(s.includes[0].included_from, p);
     assert_eq!(s.includes[2].resolved_path, d.join("sub").join("l3.inp"));
     let order: Vec<&str> = s.cards.iter().map(|c| c.keyword.as_str()).collect();
-    assert_eq!(
-        order,
-        vec!["NODE", "INCLUDE", "INCLUDE", "INCLUDE", "NSET", "NSET", "NSET", "ELEMENT"]
-    );
+    assert_eq!(order, vec!["NODE", "INCLUDE", "INCLUDE", "INCLUDE", "NSET", "NSET", "NSET", "ELEMENT"]);
     let n3 = s.cards.iter().find(|c| c.params.first().and_then(|p| p.1.as_deref()) == Some("N3")).unwrap();
     assert_eq!(n3.file, d.join("sub").join("l3.inp"));
     assert_eq!(read_card_data(n3, 5).unwrap(), vec!["1,2"]);
@@ -205,10 +179,7 @@ fn include_cycle_is_error() {
     }
     // Self include.
     let p = write(&d, "self.inp", "*INCLUDE, INPUT=self.inp\n");
-    assert!(matches!(
-        scan_cards(&p, &ScanLimits::default()),
-        Err(FrdError::InvalidFormat(_))
-    ));
+    assert!(matches!(scan_cards(&p, &ScanLimits::default()), Err(FrdError::InvalidFormat(_))));
 }
 
 #[test]
@@ -317,10 +288,7 @@ fn flags() {
         "*CYCLIC SYMMETRY MODEL, N=4\n1,2\n*CONTACT PAIR, INTERACTION=I\na,b\n*INCLUDE, INPUT=gone.inp\n",
     );
     let s = scan(&p);
-    assert_eq!(
-        s.flags(),
-        vec!["CYCLIC_SYMMETRY", "CONTACT", "MISSING_INCLUDES", "NO_STEPS", "NO_MESH"]
-    );
+    assert_eq!(s.flags(), vec!["CYCLIC_SYMMETRY", "CONTACT", "MISSING_INCLUDES", "NO_STEPS", "NO_MESH"]);
 
     // Only nodes: still NO_MESH.
     let p = write(&d, "c.inp", "*NODE\n1,0,0,0\n*STEP\n*END STEP\n");

@@ -3,27 +3,28 @@
 
 //! `cgx-core`: High-performance FEA data structures, invariants, and FRD parsing for CalculiX.
 
-pub mod model;
 pub mod invariants;
-pub mod parser;
-pub mod telemetry;
-pub mod mesh_faces;
 pub mod mesh_check;
 pub mod mesh_contact;
+pub mod mesh_faces;
+pub mod model;
+pub mod parser;
+pub mod telemetry;
 
-pub use model::*;
 pub use invariants::*;
-pub use telemetry::*;
+pub use model::*;
 pub use parser::{
-    consolidate_inp, inspect_inp, load_companion_sets, parse_frd_file, parse_sets_from_inp,
-    parse_sets_from_str, ByteCursor, DatasetEntry, DenseDataset, FrdIndex, FrdParserEngine, StepRef, InpConsolidateStats, InpInclude, InpSummary,
+    consolidate_inp, inspect_inp, load_companion_sets, parse_frd_file, parse_sets_from_inp, parse_sets_from_str,
+    ByteCursor, DatasetEntry, DenseDataset, FrdIndex, FrdParserEngine, InpConsolidateStats, InpInclude, InpSummary,
+    StepRef,
 };
+pub use telemetry::*;
 
-pub use parser::inp_cards::*;
-pub use parser::inp_edit::*;
-pub use mesh_faces::*;
 pub use mesh_check::*;
 pub use mesh_contact::*;
+pub use mesh_faces::*;
+pub use parser::inp_cards::*;
+pub use parser::inp_edit::*;
 pub use parser::inp_mesh::*;
 
 use thiserror::Error;
@@ -46,16 +47,16 @@ pub type Result<T> = std::result::Result<T, FrdError>;
 pub trait FrdParser {
     /// Quickly scan file to extract metadata, node count, element count, and step index
     fn scan_metadata(&mut self) -> Result<()>;
-    
+
     /// Parse all nodes
     fn parse_nodes(&mut self) -> Result<Vec<Node>>;
-    
+
     /// Parse all elements
     fn parse_elements(&mut self) -> Result<Vec<Element>>;
-    
+
     /// Parse all node and element sets
     fn parse_sets(&mut self) -> Result<Vec<Set>>;
-    
+
     /// Hydrate dataset for a specific step index
     fn parse_step_datasets(&mut self, step_idx: usize) -> Result<Vec<Dataset>>;
 }

@@ -2,9 +2,15 @@
 name = "cgx-top"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Interactive Terminal User Interface for CalculiX results files (.frd)"
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Terminal dashboard and command-line tool for CalculiX results (.frd) and decks (.inp)"
+readme = "../../README.md"
 
 [dependencies]
 cgx-core = { path = "../cgx-core" }
@@ -12,3 +18,6 @@ clap = { workspace = true }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 anyhow = { workspace = true }
+
+[lints]
+workspace = true

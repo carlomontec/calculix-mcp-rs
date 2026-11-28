@@ -51,11 +51,7 @@ pub struct ScanLimits {
 
 impl Default for ScanLimits {
     fn default() -> Self {
-        ScanLimits {
-            max_files: 1000,
-            max_depth: 16,
-            max_total_bytes: 2 * 1024 * 1024 * 1024,
-        }
+        ScanLimits { max_files: 1000, max_depth: 16, max_total_bytes: 2 * 1024 * 1024 * 1024 }
     }
 }
 
@@ -142,18 +138,11 @@ fn parse_header(text: &str) -> (String, Vec<(String, Option<String>)>) {
 }
 
 fn param_value<'a>(card: &'a InpCard, key: &str) -> Option<&'a str> {
-    card.params
-        .iter()
-        .find(|(k, _)| k == key)
-        .and_then(|(_, v)| v.as_deref())
+    card.params.iter().find(|(k, _)| k == key).and_then(|(_, v)| v.as_deref())
 }
 
 /// Read one line (without `\n` / `\r\n`). Returns `(start_offset, text)` or `None` at EOF.
-fn next_line<R: BufRead>(
-    reader: &mut R,
-    pos: &mut u64,
-    buf: &mut Vec<u8>,
-) -> Result<Option<(u64, String)>> {
+fn next_line<R: BufRead>(reader: &mut R, pos: &mut u64, buf: &mut Vec<u8>) -> Result<Option<(u64, String)>> {
     buf.clear();
     let n = reader.read_until(b'\n', buf)?;
     if n == 0 {
@@ -183,10 +172,7 @@ impl<'a> Scanner<'a> {
     fn scan_file(&mut self, path: &Path, depth: usize) -> Result<()> {
         let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         if self.stack.contains(&canonical) {
-            return Err(FrdError::InvalidFormat(format!(
-                "Circular *INCLUDE detected: {}",
-                path.display()
-            )));
+            return Err(FrdError::InvalidFormat(format!("Circular *INCLUDE detected: {}", path.display())));
         }
         if depth > self.limits.max_depth {
             return Err(FrdError::InvalidFormat(format!(
@@ -299,11 +285,7 @@ impl<'a> Scanner<'a> {
                 let parent = path.parent().unwrap_or_else(|| Path::new("."));
                 let resolved = parent.join(&target);
                 let exists = resolved.is_file();
-                let size = if exists {
-                    fs::metadata(&resolved).map(|m| m.len()).unwrap_or(0)
-                } else {
-                    0
-                };
+                let size = if exists { fs::metadata(&resolved).map(|m| m.len()).unwrap_or(0) } else { 0 };
                 self.includes.push(InpInclude {
                     raw_target: target,
                     resolved_path: resolved.clone(),
@@ -339,11 +321,7 @@ pub fn scan_cards(root: &Path, limits: &ScanLimits) -> Result<InpScan> {
         stack: Vec::new(),
     };
     scanner.scan_file(root, 0)?;
-    Ok(InpScan {
-        cards: scanner.cards,
-        includes: scanner.includes,
-        total_lines: scanner.total_lines,
-    })
+    Ok(InpScan { cards: scanner.cards, includes: scanner.includes, total_lines: scanner.total_lines })
 }
 
 /// Read up to `max_lines` data lines of `card` (comments and blank lines skipped, line
@@ -449,9 +427,9 @@ impl InpScan {
         let step_param = |p: &str| {
             self.cards.iter().any(|c| {
                 c.keyword == "STEP"
-                    && c.params.iter().any(|(k, v)| {
-                        k == p && !v.as_deref().is_some_and(|v| v.eq_ignore_ascii_case("NO"))
-                    })
+                    && c.params
+                        .iter()
+                        .any(|(k, v)| k == p && !v.as_deref().is_some_and(|v| v.eq_ignore_ascii_case("NO")))
             })
         };
         let mut f = Vec::new();
@@ -483,9 +461,6 @@ impl InpScan {
     /// `step`: `Some(0)` = model level, `Some(n)` = inside step n, `None` = anywhere.
     pub fn find(&self, keyword: &str, step: Option<u32>) -> Vec<&InpCard> {
         let kw = normalize_keyword(keyword);
-        self.cards
-            .iter()
-            .filter(|c| c.keyword == kw && step.map_or(true, |s| c.step == s))
-            .collect()
+        self.cards.iter().filter(|c| c.keyword == kw && step.is_none_or(|s| c.step == s)).collect()
     }
 }

@@ -43,7 +43,15 @@ fn sev(d: &Diagnosis, rule: &str) -> Severity {
 }
 
 fn ev(d: &Diagnosis, rule: &str, key: &str) -> f64 {
-    d.findings.iter().find(|f| f.rule == rule).unwrap().evidence.iter().find(|(k, _)| *k == key).unwrap_or_else(|| panic!("no evidence {key}")).1
+    d.findings
+        .iter()
+        .find(|f| f.rule == rule)
+        .unwrap()
+        .evidence
+        .iter()
+        .find(|(k, _)| *k == key)
+        .unwrap_or_else(|| panic!("no evidence {key}"))
+        .1
 }
 
 #[test]
@@ -249,8 +257,14 @@ fn parse_nan_and_stars_become_none() {
     let txt = "1 1 1 1 0 NaN Infinity ******** 0.1E+01\n1 1 1 2 3 0.5E+00 -inf 0.0E+00 1.0-101\n";
     let rows = parse_cvg(txt);
     assert_eq!(rows.len(), 2);
-    assert_eq!((rows[0].resid_force, rows[0].corr_disp, rows[0].resid_flux, rows[0].corr_temp), (None, None, None, Some(1.0)));
-    assert_eq!((rows[1].resid_force, rows[1].corr_disp, rows[1].resid_flux, rows[1].corr_temp), (Some(0.5), None, Some(0.0), None));
+    assert_eq!(
+        (rows[0].resid_force, rows[0].corr_disp, rows[0].resid_flux, rows[0].corr_temp),
+        (None, None, None, Some(1.0))
+    );
+    assert_eq!(
+        (rows[1].resid_force, rows[1].corr_disp, rows[1].resid_flux, rows[1].corr_temp),
+        (Some(0.5), None, Some(0.0), None)
+    );
     assert_eq!(rows[1].contact_el, 3);
     let sta = parse_sta("1 1 1 1 0.1E+01 ******** NaN\n");
     assert_eq!(sta.len(), 1);

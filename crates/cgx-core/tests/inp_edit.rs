@@ -84,7 +84,11 @@ fn err(root: &Path, ops: &[EditOp]) -> EditError {
 fn set_param_replaces_adds_and_removes() {
     let dir = sandbox();
     let root = deck_in(&dir, DECK);
-    let step1 = |p: &str, v: Option<&str>| EditOp::SetParam { card: at("STEP", 1), param: p.into(), value: v.map(String::from) };
+    let step1 = |p: &str, v: Option<&str>| EditOp::SetParam {
+        card: at("STEP", 1),
+        param: p.into(),
+        value: v.map(String::from),
+    };
     // One op per card (several ops on one card are rejected), so chain the requests.
     let (_, t1) = run(&root, &[step1("inc", Some("200"))]);
     assert_eq!(t1.replace("INC=200", "INC=100"), DECK);
@@ -101,7 +105,10 @@ fn set_param_replaces_adds_and_removes() {
     plan_edit(&r3, &[step1("name", Some("S1"))], &out3).unwrap().write(false).unwrap();
     let scan = scan_cards(&out3, &ScanLimits::default()).unwrap();
     let s = scan.find("STEP", Some(1))[0];
-    assert_eq!(s.params, vec![("INC".to_string(), Some("200".to_string())), ("NAME".to_string(), Some("S1".to_string()))]);
+    assert_eq!(
+        s.params,
+        vec![("INC".to_string(), Some("200".to_string())), ("NAME".to_string(), Some("S1".to_string()))]
+    );
 }
 
 #[test]
@@ -109,7 +116,9 @@ fn set_param_on_header_with_continuation_line() {
     let dir = sandbox();
     let deck = "*STEP, NLGEOM,\n   INC=100,\n   UNSYMM=YES\n*STATIC\n0.1,1.\n*END STEP\n";
     let root = deck_in(&dir, deck);
-    let op = |p: &str, v: Option<&str>| vec![EditOp::SetParam { card: addr("STEP"), param: p.into(), value: v.map(String::from) }];
+    let op = |p: &str, v: Option<&str>| {
+        vec![EditOp::SetParam { card: addr("STEP"), param: p.into(), value: v.map(String::from) }]
+    };
 
     let (_, t) = run(&root, &op("INC", Some("5")));
     assert_eq!(t, "*STEP, NLGEOM,\n   INC=5,\n   UNSYMM=YES\n*STATIC\n0.1,1.\n*END STEP\n");
@@ -155,7 +164,10 @@ fn replace_data_insert_after_delete_and_append_step() {
     assert_eq!(plan.applied.len(), 4);
     let want = DECK
         .replace("*FREQUENCY\n5\n", "*FREQUENCY\n12\n")
-        .replace("*BOUNDARY\n1,1,6\n*END STEP\n*STEP, PERT", "*BOUNDARY\n1,1,6\n*CLOAD\n2,2,-1.\n*END STEP\n*STEP, PERT")
+        .replace(
+            "*BOUNDARY\n1,1,6\n*END STEP\n*STEP, PERT",
+            "*BOUNDARY\n1,1,6\n*CLOAD\n2,2,-1.\n*END STEP\n*STEP, PERT",
+        )
         .replace("*MATERIAL, NAME=STEEL\n", "")
         + "*STEP\n*STATIC\n*END STEP\n";
     assert_eq!(text, want);
@@ -197,7 +209,10 @@ fn unknown_and_ambiguous_addresses() {
     let dir = sandbox();
     let root = deck_in(&dir, DECK);
     match err(&root, &[EditOp::DeleteCard { card: addr("CONTACT PAIR") }]) {
-        EditError::UnknownCard { valid, .. } => assert_eq!(&valid[..2], ["BOUNDARY", "END STEP"][..].iter().map(|s| s.to_string()).collect::<Vec<_>>().as_slice()),
+        EditError::UnknownCard { valid, .. } => assert_eq!(
+            &valid[..2],
+            ["BOUNDARY", "END STEP"][..].iter().map(|s| s.to_string()).collect::<Vec<_>>().as_slice()
+        ),
         e => panic!("{e}"),
     }
     match err(&root, &[EditOp::DeleteCard { card: addr("BOUNDARY") }]) {
@@ -212,11 +227,13 @@ fn unknown_and_ambiguous_addresses() {
     let (_, t) = run(&root, &[EditOp::DeleteCard { card: by_index }]);
     assert_eq!(t.matches("*BOUNDARY").count(), 1);
     let _ = std::fs::remove_file(dir.join("out_edit.inp"));
-    let by_param = CardAddress { keyword: "STEP".into(), param: Some(("perturbation".into(), "".into())), ..Default::default() };
+    let by_param =
+        CardAddress { keyword: "STEP".into(), param: Some(("perturbation".into(), "".into())), ..Default::default() };
     let (_, t) = run(&root, &[EditOp::SetParam { card: by_param, param: "NAME".into(), value: Some("B".into()) }]);
     assert!(t.contains("*STEP, PERTURBATION, NAME=B\n"));
     let _ = std::fs::remove_file(dir.join("out_edit.inp"));
-    let by_value = CardAddress { keyword: "STEP".into(), param: Some(("inc".into(), "100".into())), ..Default::default() };
+    let by_value =
+        CardAddress { keyword: "STEP".into(), param: Some(("inc".into(), "100".into())), ..Default::default() };
     let (_, t) = run(&root, &[EditOp::SetParam { card: by_value, param: "INC".into(), value: Some("7".into()) }]);
     assert!(t.contains("INC=7\n"));
     let far = CardAddress { keyword: "BOUNDARY".into(), index: Some(5), ..Default::default() };
@@ -254,8 +271,14 @@ fn card_inside_an_include_writes_a_new_include_and_retargets() {
     let ops = [EditOp::ReplaceData { card: addr("CLOAD"), lines: vec!["2,2,-5.".into()] }];
     let (plan, text) = run(&root, &ops);
     assert_eq!(text, "*INCLUDE, INPUT=mid_edit.inc\n*INCLUDE, INPUT=mesh.msh\n*STEP\n*STATIC\n*END STEP\n");
-    assert_eq!(std::fs::read_to_string(dir.join("mid_edit.inc")).unwrap(), "** mid\n*include, input=sub/load_edit.inc\n");
-    assert_eq!(std::fs::read_to_string(dir.join("sub/load_edit.inc")).unwrap(), "*CLOAD\n2,2,-5.\n*INCLUDE, INPUT=\"../mesh.msh\"\n");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("mid_edit.inc")).unwrap(),
+        "** mid\n*include, input=sub/load_edit.inc\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("sub/load_edit.inc")).unwrap(),
+        "*CLOAD\n2,2,-5.\n*INCLUDE, INPUT=\"../mesh.msh\"\n"
+    );
     assert_eq!(plan.files.len(), 3);
 
     // Only new files appeared; every original is byte-identical.
@@ -299,7 +322,8 @@ fn crlf_deck_keeps_crlf_and_mixed_includes_keep_their_own_endings() {
     let dir = sandbox();
     std::fs::write(dir.join("lf.inc"), "*CLOAD\n2,2,-1.\n").unwrap();
     std::fs::write(dir.join("crlf.inc"), "*BOUNDARY\r\n1,1,6\r\n").unwrap();
-    let deck = "*INCLUDE, INPUT=lf.inc\r\n*INCLUDE, INPUT=crlf.inc\r\n*STEP,\r\n INC=3\r\n*STATIC\r\n0.1,1.\r\n*END STEP";
+    let deck =
+        "*INCLUDE, INPUT=lf.inc\r\n*INCLUDE, INPUT=crlf.inc\r\n*STEP,\r\n INC=3\r\n*STATIC\r\n0.1,1.\r\n*END STEP";
     let root = deck_in(&dir, deck); // no final newline either
     let before = snapshot(&dir);
     let ops = [
@@ -365,6 +389,11 @@ fn unified_diff_shows_context_and_hunk_headers() {
 fn run_noop(dir: &Path) -> (cgx_core::EditPlan, ()) {
     let root = dir.join("deck.inp");
     let out = dir.join("noop.inp");
-    let plan = plan_edit(&root, &[EditOp::SetParam { card: at("STEP", 1), param: "INC".into(), value: Some("100".into()) }], &out).unwrap();
+    let plan = plan_edit(
+        &root,
+        &[EditOp::SetParam { card: at("STEP", 1), param: "INC".into(), value: Some("100".into()) }],
+        &out,
+    )
+    .unwrap();
     (plan, ())
 }

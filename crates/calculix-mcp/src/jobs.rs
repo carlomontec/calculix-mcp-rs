@@ -208,7 +208,11 @@ pub fn isolated_command(
 /// Stop the process group led by `child` (pid `pid`): SIGTERM to the group, wait up to `grace`,
 /// then SIGKILL; always reap the leader (no zombie), then SIGKILL the group once more because
 /// members that ignored SIGTERM may outlive the leader. Returns the leader's exit status if known.
-pub async fn terminate_group(child: &mut tokio::process::Child, pid: Option<u32>, grace: Duration) -> Option<std::process::ExitStatus> {
+pub async fn terminate_group(
+    child: &mut tokio::process::Child,
+    pid: Option<u32>,
+    grace: Duration,
+) -> Option<std::process::ExitStatus> {
     signal_group(pid, TERM);
     #[cfg(not(unix))]
     let _ = child.start_kill();
@@ -477,14 +481,22 @@ impl JobManager {
                 .collect();
             ids.sort_by(|a, b| b.cmp(a)); // ids start with a timestamp: newest first
             ids.dedup();
-            ToolError::new("UNKNOWN_JOB", format!("no job '{}'", id)).valid(ids).hint("valid lists the most recent job ids.")
+            ToolError::new("UNKNOWN_JOB", format!("no job '{}'", id))
+                .valid(ids)
+                .hint("valid lists the most recent job ids.")
         })
     }
 
     /// The jobs of models folder `root` with a manifest on disk (live ones from memory), plus every
     /// job this server started in another folder, newest first, optionally only those in `state`.
     /// Returns the page of `offset..offset+limit` and the total that matched.
-    pub fn list(&self, root: Option<&Path>, state: Option<State>, offset: usize, limit: usize) -> (Vec<Manifest>, usize) {
+    pub fn list(
+        &self,
+        root: Option<&Path>,
+        state: Option<State>,
+        offset: usize,
+        limit: usize,
+    ) -> (Vec<Manifest>, usize) {
         let on_disk: Vec<Manifest> = root
             .map(|r| std::fs::read_dir(Self::runs_dir(r)).into_iter().flatten().flatten().collect::<Vec<_>>())
             .unwrap_or_default()
@@ -665,7 +677,9 @@ async fn supervise(inner: Arc<Inner>, job: Arc<Job>, binary: PathBuf) {
             let status = terminate_group(&mut child, pid, inner.grace).await;
             let (code, signal) = status.map(exit_parts).unwrap_or((None, None));
             match outcome {
-                Outcome::TimedOut => job.finish(State::TimedOut, code, signal, Some(format!("TIMEOUT: exceeded {} s", m.timeout_s))),
+                Outcome::TimedOut => {
+                    job.finish(State::TimedOut, code, signal, Some(format!("TIMEOUT: exceeded {} s", m.timeout_s)))
+                }
                 Outcome::DiskQuota(size, limit) => job.finish(
                     State::Failed,
                     code,
@@ -687,7 +701,10 @@ pub fn exit_parts(status: std::process::ExitStatus) -> (Option<i32>, Option<i32>
 }
 
 /// Decide the terminal state of a process that exited on its own.
-fn classify(status: std::io::Result<std::process::ExitStatus>, m: &Manifest) -> (State, Option<i32>, Option<i32>, Option<String>) {
+fn classify(
+    status: std::io::Result<std::process::ExitStatus>,
+    m: &Manifest,
+) -> (State, Option<i32>, Option<i32>, Option<String>) {
     let status = match status {
         Ok(s) => s,
         Err(e) => return (State::Failed, None, None, Some(format!("SPAWN: wait failed: {}", e))),
@@ -804,8 +821,16 @@ esac
             std::fs::write(run_dir.join("deck.inp"), format!("** MODE={}\n*STEP\n*STATIC\n*END STEP\n", mode)).unwrap();
             let s = self.manager.solver(solver).unwrap();
             let p = Prepared {
-                job_id: job_id.clone(), source_inp: run_dir.join("deck.inp"), run_dir, jobname: "deck".into(),
-                solver: s.name, binary: s.path, json: s.json, threads: 3, timeout_s, label: None,
+                job_id: job_id.clone(),
+                source_inp: run_dir.join("deck.inp"),
+                run_dir,
+                jobname: "deck".into(),
+                solver: s.name,
+                binary: s.path,
+                json: s.json,
+                threads: 3,
+                timeout_s,
+                label: None,
             };
             self.manager.launch(p);
             job_id
@@ -840,7 +865,11 @@ esac
         assert_eq!((ok.state, ok.exit_code, ok.failure.as_deref()), (State::Succeeded, Some(0), None));
         let log = std::fs::read_to_string(ok.run_dir.join("stdout.log")).unwrap();
         assert!(log.contains("threads=3"), "thread count reaches the solver: {}", log);
-        assert!(log.contains(&format!("home={}", ok.run_dir.join("tmp").display())), "environment is isolated: {}", log);
+        assert!(
+            log.contains(&format!("home={}", ok.run_dir.join("tmp").display())),
+            "environment is isolated: {}",
+            log
+        );
         assert!(ok.base().with_extension("sta").exists());
 
         let fail = b.until(&b.start("fail", 30), State::terminal).await;
@@ -905,7 +934,9 @@ esac
         let leader = running.pid.unwrap();
         let pid_file = running.run_dir.join("child.pid");
         for _ in 0..40 {
-            if pid_file.exists() { break; }
+            if pid_file.exists() {
+                break;
+            }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         let grandchild: u32 = std::fs::read_to_string(&pid_file).unwrap().trim().parse().unwrap();
@@ -974,7 +1005,10 @@ esac
 
         let fresh = JobManager::new(&b.dir, Vec::new(), Vec::new(), Duration::from_millis(100));
         let (all, total) = fresh.list(Some(&b.dir), None, 0, 10);
-        assert_eq!((total, all.iter().map(|m| m.job_id.as_str()).collect::<Vec<_>>()), (2, vec![fail.as_str(), ok.as_str()]));
+        assert_eq!(
+            (total, all.iter().map(|m| m.job_id.as_str()).collect::<Vec<_>>()),
+            (2, vec![fail.as_str(), ok.as_str()])
+        );
         let (failed, n) = fresh.list(Some(&b.dir), Some(State::Failed), 0, 10);
         assert_eq!((n, failed[0].job_id.as_str()), (1, fail.as_str()));
         let (page, n) = fresh.list(Some(&b.dir), None, 1, 1);
@@ -989,9 +1023,26 @@ esac
             let run_dir = b.dir.join(".calculix-mcp/runs").join(name);
             std::fs::create_dir_all(&run_dir).unwrap();
             write_manifest(&Manifest {
-                job_id: name.into(), state: State::Running, label: None, jobname: "deck".into(), solver: "fake".into(),
-                threads: 1, argv: Vec::new(), telemetry_source: TelemetrySource::Json, run_dir, source_inp: PathBuf::new(), timeout_s: 1, pid: Some(pid),
-                proc_start: start, created: 0, started: Some(0), ended: None, exit_code: None, signal: None, failure: None, server_pid: None,
+                job_id: name.into(),
+                state: State::Running,
+                label: None,
+                jobname: "deck".into(),
+                solver: "fake".into(),
+                threads: 1,
+                argv: Vec::new(),
+                telemetry_source: TelemetrySource::Json,
+                run_dir,
+                source_inp: PathBuf::new(),
+                timeout_s: 1,
+                pid: Some(pid),
+                proc_start: start,
+                created: 0,
+                started: Some(0),
+                ended: None,
+                exit_code: None,
+                signal: None,
+                failure: None,
+                server_pid: None,
             });
         };
         let spawn = || {
@@ -1035,7 +1086,11 @@ esac
         fresh.activate(&b.dir);
         fresh.activate(&other);
         assert_eq!(fresh.get(&id).unwrap().state, State::Succeeded);
-        assert_eq!(fresh.list(Some(&other), None, 0, 10).1, 0, "the job lives in the first folder; a new server lists by folder");
+        assert_eq!(
+            fresh.list(Some(&other), None, 0, 10).1,
+            0,
+            "the job lives in the first folder; a new server lists by folder"
+        );
     }
 
     #[test]
@@ -1045,9 +1100,25 @@ esac
         let run_dir = b.dir.join(".calculix-mcp/runs/j9-other");
         std::fs::create_dir_all(&run_dir).unwrap();
         let m = Manifest {
-            job_id: "j9-other".into(), state: State::Running, label: None, jobname: "deck".into(), solver: "fake".into(),
-            threads: 1, argv: Vec::new(), telemetry_source: TelemetrySource::Json, run_dir, source_inp: PathBuf::new(), timeout_s: 1,
-            pid: None, proc_start: None, created: 0, started: Some(0), ended: None, exit_code: None, signal: None, failure: None,
+            job_id: "j9-other".into(),
+            state: State::Running,
+            label: None,
+            jobname: "deck".into(),
+            solver: "fake".into(),
+            threads: 1,
+            argv: Vec::new(),
+            telemetry_source: TelemetrySource::Json,
+            run_dir,
+            source_inp: PathBuf::new(),
+            timeout_s: 1,
+            pid: None,
+            proc_start: None,
+            created: 0,
+            started: Some(0),
+            ended: None,
+            exit_code: None,
+            signal: None,
+            failure: None,
             server_pid: Some(sleeper.id()),
         };
         write_manifest(&m);

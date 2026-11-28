@@ -11,6 +11,7 @@
 /// * `canvas_rows`: Number of character rows for the plot area (e.g. 7).
 /// * `x_label_left`: Optional label for the start of the x-axis (e.g. "Step 1").
 /// * `x_label_right`: Optional label for the end of the x-axis (e.g. "Step 200").
+#[allow(clippy::needless_range_loop)] // the grid is drawn by indexing neighbouring cells
 pub fn render_ascii_plot(
     values: &[f32],
     canvas_cols: usize,
@@ -24,22 +25,14 @@ pub fn render_ascii_plot(
 
     let min_val = values.iter().copied().fold(f32::INFINITY, f32::min);
     let max_val = values.iter().copied().fold(-f32::INFINITY, f32::max);
-    let range = if (max_val - min_val).abs() < 1e-12 {
-        1.0
-    } else {
-        max_val - min_val
-    };
+    let range = if (max_val - min_val).abs() < 1e-12 { 1.0 } else { max_val - min_val };
 
     let n = values.len();
 
     // Map each column to a row coordinate using linear interpolation between data points
     let mut col_y: Vec<usize> = Vec::with_capacity(canvas_cols);
     for c in 0..canvas_cols {
-        let t = if canvas_cols <= 1 {
-            0.0
-        } else {
-            (c as f64 / (canvas_cols - 1) as f64) * (n - 1) as f64
-        };
+        let t = if canvas_cols <= 1 { 0.0 } else { (c as f64 / (canvas_cols - 1) as f64) * (n - 1) as f64 };
         let idx = (t.floor() as usize).min(n - 1);
         let next_idx = (idx + 1).min(n - 1);
         let alpha = (t - idx as f64) as f32;
@@ -166,13 +159,11 @@ mod tests {
 
     #[test]
     fn test_sine_curve_dimensions() {
-        let values: Vec<f32> = (0..20)
-            .map(|i| (i as f32 * 0.314).sin() * 100.0)
-            .collect();
+        let values: Vec<f32> = (0..20).map(|i| (i as f32 * 0.314).sin() * 100.0).collect();
         let result = render_ascii_plot(&values, 50, 6, Some("Start"), Some("End"));
         assert_eq!(result.len(), 8); // 6 rows + axis line + label line
         for (i, line) in result.iter().enumerate() {
-            assert!(line.len() > 0, "Line {} should not be empty", i);
+            assert!(!line.is_empty(), "Line {} should not be empty", i);
         }
     }
 

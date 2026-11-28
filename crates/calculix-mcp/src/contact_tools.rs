@@ -7,8 +7,8 @@ use crate::error::{nearest, ToolError};
 use crate::frd_tools::Table;
 use crate::paths::Roots;
 use cgx_core::{
-    exterior_faces, find_contact_pairs, nearest_opposing_gap, partition_groups, read_inp_mesh, scan_cards, write_surface_card,
-    ContactGroup, ContactReport, ContactSearch, Face, InpMesh, InpScan, Partition, ScanLimits,
+    exterior_faces, find_contact_pairs, nearest_opposing_gap, partition_groups, read_inp_mesh, scan_cards,
+    write_surface_card, ContactGroup, ContactReport, ContactSearch, Face, InpMesh, InpScan, Partition, ScanLimits,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -202,7 +202,11 @@ pub fn contact_pairs(roots: &Roots, p: MeshContactIn) -> Result<MeshContactOut, 
         Some(g) => g,
         None => {
             let m = median_face_size(&exterior_faces(&mesh));
-            if m > 0.0 { 0.1 * m } else { return Err(ToolError::new("DECK_INVALID", "the deck has no solid exterior faces")) }
+            if m > 0.0 {
+                0.1 * m
+            } else {
+                return Err(ToolError::new("DECK_INVALID", "the deck has no solid exterior faces"));
+            }
         }
     };
     let search = ContactSearch { gap_max, max_angle_deg: max_angle, groups: sel.clone() };
@@ -212,7 +216,12 @@ pub fn contact_pairs(roots: &Roots, p: MeshContactIn) -> Result<MeshContactOut, 
         .iter()
         .zip(&rep.faces_per_group)
         .take(MAX_GROUPS_LISTED)
-        .map(|(g, &nf)| GroupOut { name: g.name.clone(), elements: g.elements.len(), exterior_faces: nf, bounding_box: BBox { min: g.bbox.0, max: g.bbox.1 } })
+        .map(|(g, &nf)| GroupOut {
+            name: g.name.clone(),
+            elements: g.elements.len(),
+            exterior_faces: nf,
+            bounding_box: BBox { min: g.bbox.0, max: g.bbox.1 },
+        })
         .collect();
     let stages = Table {
         columns: ["stage", "count"].map(String::from).to_vec(),
@@ -227,7 +236,8 @@ pub fn contact_pairs(roots: &Roots, p: MeshContactIn) -> Result<MeshContactOut, 
         .map(|(n, c)| vec![json!(n), json!(c)])
         .collect(),
     };
-    let pairs: Vec<ContactPairOut> = rep.pairs.iter().take(MAX_PAIRS_LISTED).map(|gp| pair_out(&groups, &rep, gp)).collect();
+    let pairs: Vec<ContactPairOut> =
+        rep.pairs.iter().take(MAX_PAIRS_LISTED).map(|gp| pair_out(&groups, &rep, gp)).collect();
 
     let mut hint = empty_hint(&mesh, &groups, &rep, &search, pname);
     let saved = match &p.save {
@@ -269,7 +279,15 @@ fn pair_out(groups: &[ContactGroup], rep: &ContactReport, gp: &cgx_core::GroupPa
             .take(10)
             .map(|fp| {
                 let (fa, fb) = (&rep.faces[fp.a], &rep.faces[fp.b]);
-                vec![json!(fa.element), json!(fa.face), json!(fb.element), json!(fb.face), json!(fp.gap), json!(fa.area), json!(fb.area)]
+                vec![
+                    json!(fa.element),
+                    json!(fa.face),
+                    json!(fb.element),
+                    json!(fb.face),
+                    json!(fp.gap),
+                    json!(fa.area),
+                    json!(fb.area),
+                ]
             })
             .collect(),
     };
@@ -290,7 +308,13 @@ fn pair_out(groups: &[ContactGroup], rep: &ContactReport, gp: &cgx_core::GroupPa
     }
 }
 
-fn empty_hint(mesh: &InpMesh, groups: &[ContactGroup], rep: &ContactReport, search: &ContactSearch, pname: &str) -> Option<String> {
+fn empty_hint(
+    mesh: &InpMesh,
+    groups: &[ContactGroup],
+    rep: &ContactReport,
+    search: &ContactSearch,
+    pname: &str,
+) -> Option<String> {
     if !rep.pairs.is_empty() {
         return None;
     }
@@ -324,8 +348,11 @@ fn save_pairs(
     rep: &ContactReport,
 ) -> Result<ContactSavedOut, ToolError> {
     if rep.pairs.len() > MAX_PAIRS_SAVED {
-        return Err(ToolError::invalid(format!("{} group pairs found; a save writes at most {MAX_PAIRS_SAVED}", rep.pairs.len()))
-            .hint("Pass `groups` to choose the parts to save."));
+        return Err(ToolError::invalid(format!(
+            "{} group pairs found; a save writes at most {MAX_PAIRS_SAVED}",
+            rep.pairs.len()
+        ))
+        .hint("Pass `groups` to choose the parts to save."));
     }
     let deck_dir = deck.parent().unwrap_or(Path::new("."));
     let mut deck_files: HashSet<PathBuf> = HashSet::new();
@@ -347,8 +374,11 @@ fn save_pairs(
             valid_name(&surf, "surface name")?;
             let out = roots.creatable(&deck_dir.join(format!("{stem}_{role}.sur")).to_string_lossy(), &["sur"])?;
             if deck_files.contains(&out) {
-                return Err(ToolError::invalid(format!("{} is a file of the deck; the deck itself is never modified", roots.display(&out)))
-                    .hint("Choose another save.prefix."));
+                return Err(ToolError::invalid(format!(
+                    "{} is a file of the deck; the deck itself is never modified",
+                    roots.display(&out)
+                ))
+                .hint("Choose another save.prefix."));
             }
             if out.exists() && !spec.overwrite {
                 return Err(ToolError::new("RESULTS_EXIST", format!("{} already exists", roots.display(&out)))
@@ -365,7 +395,8 @@ fn save_pairs(
     for (out, text) in &plan {
         std::fs::write(out, text).map_err(ToolError::internal)?;
         files.push(roots.display(out));
-        let target = out.strip_prefix(deck_dir).map(|r| r.display().to_string()).unwrap_or_else(|_| out.display().to_string());
+        let target =
+            out.strip_prefix(deck_dir).map(|r| r.display().to_string()).unwrap_or_else(|_| out.display().to_string());
         includes.push(format!("*INCLUDE, INPUT={target}"));
     }
     let si = format!("{}_SI", spec.prefix).to_uppercase();
@@ -405,7 +436,13 @@ mod tests {
         for k in 0..=n[2] {
             for j in 0..=n[1] {
                 for i in 0..=n[0] {
-                    s += &format!("{}, {}, {}, {}\n", id(i, j, k), origin[0] + i as f64 * h, origin[1] + j as f64 * h, origin[2] + k as f64 * h);
+                    s += &format!(
+                        "{}, {}, {}, {}\n",
+                        id(i, j, k),
+                        origin[0] + i as f64 * h,
+                        origin[1] + j as f64 * h,
+                        origin[2] + k as f64 * h
+                    );
                 }
             }
         }
@@ -415,8 +452,14 @@ mod tests {
             for j in 0..n[1] {
                 for i in 0..n[0] {
                     let c = [
-                        id(i, j, k), id(i + 1, j, k), id(i + 1, j + 1, k), id(i, j + 1, k),
-                        id(i, j, k + 1), id(i + 1, j, k + 1), id(i + 1, j + 1, k + 1), id(i, j + 1, k + 1),
+                        id(i, j, k),
+                        id(i + 1, j, k),
+                        id(i + 1, j + 1, k),
+                        id(i, j + 1, k),
+                        id(i, j, k + 1),
+                        id(i + 1, j, k + 1),
+                        id(i + 1, j + 1, k + 1),
+                        id(i, j + 1, k + 1),
                     ];
                     let c: Vec<String> = c.iter().map(|v| v.to_string()).collect();
                     s += &format!("{}, {}\n", e, c.join(", "));
@@ -446,7 +489,14 @@ mod tests {
     }
 
     fn req(path: &str) -> MeshContactIn {
-        MeshContactIn { path: path.into(), partition: None, groups: None, gap_max: Some(0.05), max_angle_deg: None, save: None }
+        MeshContactIn {
+            path: path.into(),
+            partition: None,
+            groups: None,
+            gap_max: Some(0.05),
+            max_angle_deg: None,
+            save: None,
+        }
     }
 
     #[test]
@@ -456,7 +506,10 @@ mod tests {
         assert_eq!(out.partition, "component");
         assert_eq!(out.groups_total, 3);
         // Components by size: LID (16), BASE (4), FAR (1).
-        assert_eq!(out.groups.iter().map(|g| (g.name.as_str(), g.elements)).collect::<Vec<_>>(), [("PART_1", 16), ("PART_2", 4), ("PART_3", 1)]);
+        assert_eq!(
+            out.groups.iter().map(|g| (g.name.as_str(), g.elements)).collect::<Vec<_>>(),
+            [("PART_1", 16), ("PART_2", 4), ("PART_3", 1)]
+        );
         assert_eq!(out.groups[2].bounding_box.min, [10.0, 0.0, 0.0]);
         assert_eq!(out.pairs_total, 1);
         let p = &out.pairs[0];
@@ -464,7 +517,11 @@ mod tests {
         assert_eq!((p.faces_a, p.faces_b), (16, 4));
         assert!((p.gap_min - 0.02).abs() < 1e-9 && (p.gap_max - 0.02).abs() < 1e-9);
         assert!((p.overlap_area_estimate - 4.0).abs() < 1e-9);
-        assert_eq!((p.suggested_slave.as_str(), p.suggested_master.as_str()), ("PART_1", "PART_2"), "the fine lid is the slave");
+        assert_eq!(
+            (p.suggested_slave.as_str(), p.suggested_master.as_str()),
+            ("PART_1", "PART_2"),
+            "the fine lid is the slave"
+        );
         assert_eq!(p.sample.columns.len(), 7);
         assert_eq!(p.sample.rows.len(), 10);
         assert_eq!(out.stages.rows.len(), 5);
@@ -483,16 +540,28 @@ mod tests {
     #[test]
     fn groups_filter_and_partitions() {
         let (dir, roots) = setup(&three_parts());
-        let out = contact_pairs(&roots, MeshContactIn { groups: Some(vec!["part_3".into()]), ..req("deck.inp") }).unwrap();
+        let out =
+            contact_pairs(&roots, MeshContactIn { groups: Some(vec!["part_3".into()]), ..req("deck.inp") }).unwrap();
         assert_eq!(out.pairs_total, 0);
-        assert!(out.hint.as_deref().unwrap().contains("No face pairs") || out.hint.as_deref().unwrap().contains("do not face"), "{:?}", out.hint);
-        let out = contact_pairs(&roots, MeshContactIn { groups: Some(vec!["PART_1".into(), "PART_2".into()]), ..req("deck.inp") }).unwrap();
+        assert!(
+            out.hint.as_deref().unwrap().contains("No face pairs")
+                || out.hint.as_deref().unwrap().contains("do not face"),
+            "{:?}",
+            out.hint
+        );
+        let out = contact_pairs(
+            &roots,
+            MeshContactIn { groups: Some(vec!["PART_1".into(), "PART_2".into()]), ..req("deck.inp") },
+        )
+        .unwrap();
         assert_eq!(out.pairs_total, 1);
-        let err = contact_pairs(&roots, MeshContactIn { groups: Some(vec!["PART_9".into()]), ..req("deck.inp") }).unwrap_err();
+        let err = contact_pairs(&roots, MeshContactIn { groups: Some(vec!["PART_9".into()]), ..req("deck.inp") })
+            .unwrap_err();
         assert_eq!(err.code, "UNKNOWN_GROUP");
         assert!(err.valid.contains(&"PART_1".to_string()));
 
-        let out = contact_pairs(&roots, MeshContactIn { partition: Some(PartitionKind::Elset), ..req("deck.inp") }).unwrap();
+        let out =
+            contact_pairs(&roots, MeshContactIn { partition: Some(PartitionKind::Elset), ..req("deck.inp") }).unwrap();
         assert_eq!(out.groups.iter().map(|g| g.name.as_str()).collect::<Vec<_>>(), ["BASE", "LID", "FAR"]);
         assert_eq!((out.pairs[0].side_a.as_str(), out.pairs[0].suggested_slave.as_str()), ("BASE", "LID"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -504,13 +573,22 @@ mod tests {
         let out = contact_pairs(&roots, MeshContactIn { gap_max: Some(0.001), ..req("deck.inp") }).unwrap();
         assert_eq!(out.pairs_total, 0);
         let hint = out.hint.unwrap();
-        assert!(hint.contains("PART_1") && hint.contains("PART_2") && hint.contains("0.020000") && hint.contains("gap_max=0.024"), "{hint}");
+        assert!(
+            hint.contains("PART_1")
+                && hint.contains("PART_2")
+                && hint.contains("0.020000")
+                && hint.contains("gap_max=0.024"),
+            "{hint}"
+        );
 
         // A single part: nothing to pair, suggest another partition.
         std::fs::write(dir.join("root/one.inp"), block([2, 2, 2], 1.0, [0.0; 3], 1, "ALL")).unwrap();
         let out = contact_pairs(&roots, req("one.inp")).unwrap();
         assert!(out.hint.unwrap().contains("single group"));
-        assert_eq!(contact_pairs(&roots, MeshContactIn { gap_max: Some(-1.0), ..req("one.inp") }).unwrap_err().code, "INVALID_ARGUMENT");
+        assert_eq!(
+            contact_pairs(&roots, MeshContactIn { gap_max: Some(-1.0), ..req("one.inp") }).unwrap_err().code,
+            "INVALID_ARGUMENT"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -521,7 +599,10 @@ mod tests {
         let out = contact_pairs(&roots, MeshContactIn { save: spec(false), ..req("deck.inp") }).unwrap();
         let saved = out.saved.unwrap();
         assert_eq!(saved.files, ["lid_PART_1_PART_2_slave.sur", "lid_PART_1_PART_2_master.sur"]);
-        assert_eq!(saved.includes, ["*INCLUDE, INPUT=lid_PART_1_PART_2_slave.sur", "*INCLUDE, INPUT=lid_PART_1_PART_2_master.sur"]);
+        assert_eq!(
+            saved.includes,
+            ["*INCLUDE, INPUT=lid_PART_1_PART_2_slave.sur", "*INCLUDE, INPUT=lid_PART_1_PART_2_master.sur"]
+        );
         let t = &saved.contact_card_template;
         assert!(t.starts_with("** TEMPLATE TO REVIEW"));
         assert!(t.contains("*SURFACE INTERACTION, NAME=LID_SI\n*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=HARD\n*CONTACT PAIR, INTERACTION=LID_SI, TYPE=SURFACE TO SURFACE\nLID_PART_1_PART_2_SLAVE, LID_PART_1_PART_2_MASTER\n"), "{t}");
@@ -531,8 +612,10 @@ mod tests {
         assert_eq!(original, three_parts());
         std::fs::write(dir.join("root/deck2.inp"), format!("{original}{}\n", saved.includes.join("\n"))).unwrap();
         let mesh = read_inp_mesh(&dir.join("root/deck2.inp")).unwrap();
-        let mut slave: Vec<(u32, u8)> = faces_of_surface(&mesh, "LID_PART_1_PART_2_SLAVE").unwrap().iter().map(|f| (f.element, f.face)).collect();
-        let mut master: Vec<(u32, u8)> = faces_of_surface(&mesh, "lid_part_1_part_2_master").unwrap().iter().map(|f| (f.element, f.face)).collect();
+        let mut slave: Vec<(u32, u8)> =
+            faces_of_surface(&mesh, "LID_PART_1_PART_2_SLAVE").unwrap().iter().map(|f| (f.element, f.face)).collect();
+        let mut master: Vec<(u32, u8)> =
+            faces_of_surface(&mesh, "lid_part_1_part_2_master").unwrap().iter().map(|f| (f.element, f.face)).collect();
         slave.sort_unstable();
         master.sort_unstable();
         assert_eq!(slave.len(), 16);
@@ -542,8 +625,13 @@ mod tests {
         let mesh0 = read_inp_mesh(&dir.join("root/deck.inp")).unwrap();
         let scan0 = scan_cards(&dir.join("root/deck.inp"), &ScanLimits::default()).unwrap();
         let groups = partition_groups(&mesh0, &scan0, Partition::Component);
-        let rep = find_contact_pairs(&mesh0, &groups, &ContactSearch { gap_max: 0.05, max_angle_deg: 30.0, groups: Vec::new() });
-        let mut want: Vec<(u32, u8)> = rep.pairs[0].faces_a.iter().map(|&i| (rep.faces[i].element, rep.faces[i].face)).collect();
+        let rep = find_contact_pairs(
+            &mesh0,
+            &groups,
+            &ContactSearch { gap_max: 0.05, max_angle_deg: 30.0, groups: Vec::new() },
+        );
+        let mut want: Vec<(u32, u8)> =
+            rep.pairs[0].faces_a.iter().map(|&i| (rep.faces[i].element, rep.faces[i].face)).collect();
         want.sort_unstable();
         assert_eq!(slave, want);
 
@@ -552,7 +640,15 @@ mod tests {
         assert!(contact_pairs(&roots, MeshContactIn { save: spec(true), ..req("deck.inp") }).is_ok());
 
         // Nothing found: nothing saved.
-        let out = contact_pairs(&roots, MeshContactIn { gap_max: Some(0.001), save: Some(ContactSaveSpec { prefix: "none".into(), overwrite: false }), ..req("deck.inp") }).unwrap();
+        let out = contact_pairs(
+            &roots,
+            MeshContactIn {
+                gap_max: Some(0.001),
+                save: Some(ContactSaveSpec { prefix: "none".into(), overwrite: false }),
+                ..req("deck.inp")
+            },
+        )
+        .unwrap();
         assert!(out.saved.is_none() && out.hint.unwrap().ends_with("Nothing was saved."));
         assert!(!dir.join("root/none_PART_1_PART_2_slave.sur").exists());
         let _ = std::fs::remove_dir_all(&dir);
@@ -567,19 +663,38 @@ mod tests {
         let err = contact_pairs(&roots, req(dir.join("outside.inp").to_str().unwrap())).unwrap_err();
         assert_eq!(err.code, "PATH_OUTSIDE_ROOTS");
         for bad in ["", "1x", "a b", "a/b", "../x"] {
-            let err = contact_pairs(&roots, MeshContactIn { save: Some(ContactSaveSpec { prefix: bad.into(), overwrite: true }), ..req("deck.inp") }).unwrap_err();
+            let err = contact_pairs(
+                &roots,
+                MeshContactIn {
+                    save: Some(ContactSaveSpec { prefix: bad.into(), overwrite: true }),
+                    ..req("deck.inp")
+                },
+            )
+            .unwrap_err();
             assert_eq!(err.code, "INVALID_ARGUMENT", "prefix {bad:?}");
         }
         // A prefix that makes the surface name longer than 80 characters.
         let long = "p".repeat(70);
-        let err = contact_pairs(&roots, MeshContactIn { save: Some(ContactSaveSpec { prefix: long, overwrite: true }), ..req("deck.inp") }).unwrap_err();
+        let err = contact_pairs(
+            &roots,
+            MeshContactIn { save: Some(ContactSaveSpec { prefix: long, overwrite: true }), ..req("deck.inp") },
+        )
+        .unwrap_err();
         assert_eq!(err.code, "INVALID_ARGUMENT");
         assert!(std::fs::read_dir(dir.join("root")).unwrap().count() == 1, "nothing written");
 
         // A target that the deck already includes is refused even with overwrite=true.
         std::fs::write(dir.join("root/inc_PART_1_PART_2_master.sur"), "** kept\n").unwrap();
-        std::fs::write(dir.join("root/deck.inp"), format!("{}*INCLUDE, INPUT=inc_PART_1_PART_2_master.sur\n", three_parts())).unwrap();
-        let err = contact_pairs(&roots, MeshContactIn { save: Some(ContactSaveSpec { prefix: "inc".into(), overwrite: true }), ..req("deck.inp") }).unwrap_err();
+        std::fs::write(
+            dir.join("root/deck.inp"),
+            format!("{}*INCLUDE, INPUT=inc_PART_1_PART_2_master.sur\n", three_parts()),
+        )
+        .unwrap();
+        let err = contact_pairs(
+            &roots,
+            MeshContactIn { save: Some(ContactSaveSpec { prefix: "inc".into(), overwrite: true }), ..req("deck.inp") },
+        )
+        .unwrap_err();
         assert_eq!(err.code, "INVALID_ARGUMENT");
         assert!(err.message.contains("file of the deck"), "{}", err.message);
         assert_eq!(std::fs::read_to_string(dir.join("root/inc_PART_1_PART_2_master.sur")).unwrap(), "** kept\n");
@@ -590,7 +705,8 @@ mod tests {
     #[test]
     #[allow(clippy::print_stdout)]
     fn rotor_deck_runs_quickly() {
-        let deck = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
+        let deck =
+            &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
         if !deck.exists() {
             eprintln!("rotor deck not present, skipping");
             return;
@@ -598,7 +714,12 @@ mod tests {
         let roots = Roots::new(vec![deck.parent().unwrap().to_path_buf()]).unwrap();
         let t = std::time::Instant::now();
         let out = contact_pairs(&roots, MeshContactIn { gap_max: None, ..req("lavffcyc.inp") }).unwrap();
-        println!("rotor mesh_contact_pairs: {:.0} ms (deck read included), groups {}, hint {:?}", t.elapsed().as_secs_f64() * 1e3, out.groups_total, out.hint);
+        println!(
+            "rotor mesh_contact_pairs: {:.0} ms (deck read included), groups {}, hint {:?}",
+            t.elapsed().as_secs_f64() * 1e3,
+            out.groups_total,
+            out.hint
+        );
         assert_eq!(out.pairs_total, 0);
         assert!(out.hint.unwrap().contains("single group"));
     }

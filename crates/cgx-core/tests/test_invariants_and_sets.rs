@@ -1,8 +1,5 @@
 mod common;
-use cgx_core::{
-    consolidate_inp, inspect_inp, parse_frd_file,
-    parse_sets_from_str,
-};
+use cgx_core::{consolidate_inp, inspect_inp, parse_frd_file, parse_sets_from_str};
 
 #[test]
 fn test_parse_sets_from_str() {

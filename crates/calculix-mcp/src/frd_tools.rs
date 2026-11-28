@@ -9,8 +9,7 @@
 use crate::error::{nearest, ToolError};
 use crate::paths::Roots;
 use cgx_core::{
-    DenseDataset, DispExtremaSummary, FieldType, FrdIndex, SetType, StepRef, StressExtremaSummary,
-    StressTensor,
+    DenseDataset, DispExtremaSummary, FieldType, FrdIndex, SetType, StepRef, StressExtremaSummary, StressTensor,
 };
 use rayon::prelude::*;
 use schemars::JsonSchema;
@@ -57,7 +56,13 @@ pub struct Page {
 
 impl Page {
     /// Clamp `offset`/`limit` to `total` and describe the resulting window.
-    pub fn window(total: usize, offset: usize, limit: Option<usize>, default: usize, max: usize) -> (std::ops::Range<usize>, Page) {
+    pub fn window(
+        total: usize,
+        offset: usize,
+        limit: Option<usize>,
+        default: usize,
+        max: usize,
+    ) -> (std::ops::Range<usize>, Page) {
         let start = offset.min(total);
         let end = (start + limit.unwrap_or(default).clamp(1, max)).min(total);
         let page = Page {
@@ -101,7 +106,11 @@ fn pick_steps(sel: &StepSel, total: usize) -> Result<Vec<usize>, ToolError> {
         Select::All => (0..total).collect(),
         Select::Last => vec![total - 1],
         Select::FirstLast => {
-            if total == 1 { vec![0] } else { vec![0, total - 1] }
+            if total == 1 {
+                vec![0]
+            } else {
+                vec![0, total - 1]
+            }
         }
         Select::Equidistant => {
             let n = sel.n.unwrap_or(10).clamp(2, 200).min(total);
@@ -133,10 +142,9 @@ fn open(roots: &Roots, path: &str, inp_path: Option<&str>) -> Result<(FrdIndex, 
         .map_err(|e| ToolError::new("FRD_INVALID", format!("cannot read {}: {}", roots.display(&frd), e)))?;
     if let Some(inp) = inp_path {
         let inp = roots.existing(inp, &["inp", "nam"])?;
-        index
-            .mesh_mut()
-            .load_inp_sets(&inp)
-            .map_err(|e| ToolError::new("DECK_INVALID", format!("cannot read sets from {}: {}", roots.display(&inp), e)))?;
+        index.mesh_mut().load_inp_sets(&inp).map_err(|e| {
+            ToolError::new("DECK_INVALID", format!("cannot read sets from {}: {}", roots.display(&inp), e))
+        })?;
     }
     Ok((index, frd))
 }
@@ -210,7 +218,13 @@ impl Peak {
         if let Some((v, n)) = candidate {
             let better = match self.0 {
                 None => !v.is_nan(),
-                Some((best, _, _)) => if smaller_wins { v < best } else { v > best },
+                Some((best, _, _)) => {
+                    if smaller_wins {
+                        v < best
+                    } else {
+                        v > best
+                    }
+                }
             };
             if better {
                 self.0 = Some((v, n, idx));
@@ -272,10 +286,8 @@ pub fn summary(roots: &Roots, p: FrdSummaryIn) -> Result<FrdSummaryOut, ToolErro
     let (index, frd) = open(roots, &p.path, None)?;
     let chosen = pick_steps(&p.steps, index.steps().len())?;
 
-    let extrema: Vec<StepExtrema> = chosen
-        .par_iter()
-        .map(|&i| step_extrema(&index, &index.steps()[i], None, true, true, true))
-        .collect();
+    let extrema: Vec<StepExtrema> =
+        chosen.par_iter().map(|&i| step_extrema(&index, &index.steps()[i], None, true, true, true)).collect();
 
     let (mut u_max, mut vm_max) = (Peak::default(), Peak::default());
     for (&i, x) in chosen.iter().zip(&extrema) {
@@ -488,8 +500,21 @@ pub struct FrdQueryOut {
 }
 
 const STRESS_COLUMNS: [&str; 15] = [
-    "idx", "step", "value", "vm_max", "vm_max_node", "vm_min", "vm_min_node", "s1_max", "s1_max_node",
-    "s3_min", "s3_min_node", "tresca_max", "tresca_max_node", "hydro_max", "hydro_max_node",
+    "idx",
+    "step",
+    "value",
+    "vm_max",
+    "vm_max_node",
+    "vm_min",
+    "vm_min_node",
+    "s1_max",
+    "s1_max_node",
+    "s3_min",
+    "s3_min_node",
+    "tresca_max",
+    "tresca_max_node",
+    "hydro_max",
+    "hydro_max_node",
 ];
 const DISP_COLUMNS: [&str; 7] = ["idx", "step", "value", "u_max", "u_max_node", "u_min", "u_min_node"];
 
@@ -513,7 +538,9 @@ pub fn query_set(roots: &Roots, p: FrdQueryIn) -> Result<FrdQueryOut, ToolError>
             .hint("Call frd_sets (optionally with filter, or inp_path to add deck sets).")
     };
     let set = mesh.get_set(&p.set).ok_or_else(|| unknown_set(format!("no set named '{}'", p.set)))?;
-    let ids = mesh.resolve_set_node_ids(&p.set).filter(|ids| !ids.is_empty())
+    let ids = mesh
+        .resolve_set_node_ids(&p.set)
+        .filter(|ids| !ids.is_empty())
         .ok_or_else(|| unknown_set(format!("set '{}' resolves to 0 nodes", p.set)))?;
 
     let chosen = pick_steps(&p.steps, index.steps().len())?;
@@ -548,8 +575,12 @@ pub fn query_set(roots: &Roots, p: FrdQueryIn) -> Result<FrdQueryOut, ToolError>
             if stress {
                 let s = x.stress.as_ref();
                 for cell in [
-                    s.map(|s| s.max_von_mises), s.map(|s| s.min_von_mises), s.map(|s| s.max_principal_s1),
-                    s.map(|s| s.min_principal_s3), s.map(|s| s.max_tresca), s.map(|s| s.max_hydrostatic),
+                    s.map(|s| s.max_von_mises),
+                    s.map(|s| s.min_von_mises),
+                    s.map(|s| s.max_principal_s1),
+                    s.map(|s| s.min_principal_s3),
+                    s.map(|s| s.max_tresca),
+                    s.map(|s| s.max_hydrostatic),
                 ] {
                     row.extend(pair(cell));
                 }
@@ -567,7 +598,9 @@ pub fn query_set(roots: &Roots, p: FrdQueryIn) -> Result<FrdQueryOut, ToolError>
     if missing > 0 {
         notes.push(format!(
             "{} of {} selected steps have no {} dataset; their cells are null.",
-            missing, chosen.len(), if stress { "STRESS" } else { "DISP" }
+            missing,
+            chosen.len(),
+            if stress { "STRESS" } else { "DISP" }
         ));
     }
 
@@ -594,8 +627,9 @@ pub fn query_set(roots: &Roots, p: FrdQueryIn) -> Result<FrdQueryOut, ToolError>
         let ds = primary(&index, &index.steps()[idx], name, kind)
             .and_then(|e| index.load(e).ok())
             .ok_or_else(|| ToolError::new("UNKNOWN_DATASET", format!("step idx {} has no {} dataset", idx, name)))?;
-        let mut ranked = node_values(&ds, top_by, &ids)
-            .ok_or_else(|| ToolError::new("UNKNOWN_DATASET", format!("{} lacks the components needed for {:?}", name, top_by)))?;
+        let mut ranked = node_values(&ds, top_by, &ids).ok_or_else(|| {
+            ToolError::new("UNKNOWN_DATASET", format!("{} lacks the components needed for {:?}", name, top_by))
+        })?;
         let ascending = top_by == TopBy::S3Min;
         ranked.retain(|r| !r.1.is_nan());
         ranked.sort_by(|a, b| {
@@ -621,7 +655,10 @@ pub fn query_set(roots: &Roots, p: FrdQueryIn) -> Result<FrdQueryOut, ToolError>
         set: SetInfo { name: set.name.clone(), kind: kind_str(&set.set_type).into(), nodes: ids.len() },
         quantity: p.quantity,
         steps: Table {
-            columns: (if stress { STRESS_COLUMNS.to_vec() } else { DISP_COLUMNS.to_vec() }).into_iter().map(String::from).collect(),
+            columns: (if stress { STRESS_COLUMNS.to_vec() } else { DISP_COLUMNS.to_vec() })
+                .into_iter()
+                .map(String::from)
+                .collect(),
             rows,
         },
         envelope,
@@ -641,13 +678,18 @@ fn node_values(ds: &DenseDataset, by: TopBy, ids: &HashSet<u32>) -> Option<Vec<(
         if let Some(all) = full(&["ALL", "MAG", "TOTAL"]) {
             return Some(rows.map(|(i, &nid)| (nid, all[i])).collect());
         }
-        let (x, y, z) = (full(&["D1", "X", "DX", "U1"])?, full(&["D2", "Y", "DY", "U2"])?, full(&["D3", "Z", "DZ", "U3"])?);
+        let (x, y, z) =
+            (full(&["D1", "X", "DX", "U1"])?, full(&["D2", "Y", "DY", "U2"])?, full(&["D3", "Z", "DZ", "U3"])?);
         return Some(rows.map(|(i, &nid)| (nid, (x[i] * x[i] + y[i] * y[i] + z[i] * z[i]).sqrt())).collect());
     }
 
     let c = [
-        full(&["SXX", "XX", "S11", "11"])?, full(&["SYY", "YY", "S22", "22"])?, full(&["SZZ", "ZZ", "S33", "33"])?,
-        full(&["SXY", "XY", "S12", "12"])?, full(&["SYZ", "YZ", "S23", "23"])?, full(&["SZX", "ZX", "S31", "31", "S13", "13"])?,
+        full(&["SXX", "XX", "S11", "11"])?,
+        full(&["SYY", "YY", "S22", "22"])?,
+        full(&["SZZ", "ZZ", "S33", "33"])?,
+        full(&["SXY", "XY", "S12", "12"])?,
+        full(&["SYZ", "YZ", "S23", "23"])?,
+        full(&["SZX", "ZX", "S31", "31", "S13", "13"])?,
     ];
     Some(
         rows.map(|(i, &nid)| {
@@ -705,15 +747,30 @@ mod tests {
             return;
         }
         let roots = Roots::new(vec![dir]).unwrap();
-        let s = summary(&roots, FrdSummaryIn { path: "beam_benchmark.frd".into(), steps: StepSel::default(), offset: 0, limit: None }).unwrap();
+        let s = summary(
+            &roots,
+            FrdSummaryIn { path: "beam_benchmark.frd".into(), steps: StepSel::default(), offset: 0, limit: None },
+        )
+        .unwrap();
         assert_eq!((s.nodes, s.steps_total, s.steps.rows.len()), (38475, 1, 1));
         assert_eq!(s.steps.rows[0].len(), s.steps.columns.len());
-        assert!(!s.steps.columns.iter().any(|c| c == "mode" || c == "nodal_diameter"), "static run has no mode columns");
+        assert!(
+            !s.steps.columns.iter().any(|c| c == "mode" || c == "nodal_diameter"),
+            "static run has no mode columns"
+        );
         assert!(!s.notes.iter().any(|n| n.contains("PDISP")));
 
         let query = |set: &str, quantity, top_n| FrdQueryIn {
-            path: "beam_benchmark.frd".into(), set: set.into(), inp_path: None, quantity,
-            steps: StepSel::default(), offset: 0, limit: None, top_n, top_by: None, top_step: None,
+            path: "beam_benchmark.frd".into(),
+            set: set.into(),
+            inp_path: None,
+            quantity,
+            steps: StepSel::default(),
+            offset: 0,
+            limit: None,
+            top_n,
+            top_by: None,
+            top_step: None,
         };
         // Whole-model set reproduces the summary peak.
         let all = query_set(&roots, query("+all", Quantity::Stress, 3)).unwrap();
@@ -732,7 +789,17 @@ mod tests {
         assert_eq!((err.code, err.valid[0].as_str()), ("UNKNOWN_SET", "NNTIP"));
         assert_eq!(query_set(&roots, query("+all", Quantity::Stress, 51)).unwrap_err().code, "LIMIT_EXCEEDED");
 
-        let listed = sets(&roots, FrdSetsIn { path: "beam_benchmark.frd".into(), inp_path: None, filter: Some("nn".into()), offset: 0, limit: None }).unwrap();
+        let listed = sets(
+            &roots,
+            FrdSetsIn {
+                path: "beam_benchmark.frd".into(),
+                inp_path: None,
+                filter: Some("nn".into()),
+                offset: 0,
+                limit: None,
+            },
+        )
+        .unwrap();
         assert_eq!(listed.sets.rows.len(), 2);
         assert_eq!(listed.sets.rows[0][2], json!(161));
     }
@@ -746,9 +813,14 @@ mod tests {
             return;
         }
         let roots = Roots::new(vec![dir]).unwrap();
-        let s = summary(&roots, FrdSummaryIn { path: "lavffcyc.frd".into(), steps: StepSel::default(), offset: 0, limit: None }).unwrap();
+        let s = summary(
+            &roots,
+            FrdSummaryIn { path: "lavffcyc.frd".into(), steps: StepSel::default(), offset: 0, limit: None },
+        )
+        .unwrap();
         assert_eq!(s.steps_total, 4);
-        let col = |name: &str| s.steps.columns.iter().position(|c| c == name).unwrap_or_else(|| panic!("no column {}", name));
+        let col =
+            |name: &str| s.steps.columns.iter().position(|c| c == name).unwrap_or_else(|| panic!("no column {}", name));
         let (mode, nd, u, vm) = (col("mode"), col("nodal_diameter"), col("u_max"), col("vm_max"));
         for (k, row) in s.steps.rows.iter().enumerate() {
             assert_eq!(row.len(), s.steps.columns.len());

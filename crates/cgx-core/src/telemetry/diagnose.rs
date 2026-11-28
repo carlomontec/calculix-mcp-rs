@@ -185,7 +185,8 @@ const ADV_CHATTER: &str = "Inspect *SURFACE BEHAVIOR and *CONTACT PAIR with inp_
 const ADV_CUTBACK: &str = "Cutbacks recovered. Reduce the initial increment in the procedure card if they recur.";
 const ADV_LOOP: &str = "The increment keeps shrinking. Check the procedure card increments and *CONTROLS; look for abrupt load or contact changes at the reported increment.";
 const ADV_DIVERGED: &str = "Check for rigid-body motion (missing *BOUNDARY), material instability or excessive load. Run inp_inspect and review the step's cards.";
-const ADV_SLOW: &str = "Converging but expensive. A smaller increment or a tighter contact definition usually reduces iterations.";
+const ADV_SLOW: &str =
+    "Converging but expensive. A smaller increment or a tighter contact definition usually reduces iterations.";
 
 #[derive(Clone, Copy, PartialEq)]
 enum Status {
@@ -254,7 +255,14 @@ fn att_evidence(a: &Attempt, th: &Thresholds) -> Ev {
     e
 }
 
-fn finding(rule: &'static str, severity: Severity, loc: Option<(u32, u32, u32)>, evidence: Ev, occurrences: usize, advice: &'static str) -> Finding {
+fn finding(
+    rule: &'static str,
+    severity: Severity,
+    loc: Option<(u32, u32, u32)>,
+    evidence: Ev,
+    occurrences: usize,
+    advice: &'static str,
+) -> Finding {
     Finding {
         rule,
         severity,
@@ -277,7 +285,7 @@ pub fn diagnose(
     step: Option<u32>,
     last_increments: usize,
 ) -> Diagnosis {
-    let sel = |s: u32| step.map_or(true, |x| x == s);
+    let sel = |s: u32| step.is_none_or(|x| x == s);
     let sta_f: Vec<&StaRow> = sta.iter().filter(|r| sel(r.step)).collect();
     let cvg_f: Vec<&CvgRow> = cvg.iter().filter(|r| sel(r.step)).collect();
     let json_f: Vec<(u32, bool)> = ctx.json_steps.iter().copied().filter(|(s, _)| sel(*s)).collect();
@@ -333,7 +341,7 @@ pub fn diagnose(
             temp: rows.iter().map(|r| r.corr_temp).collect(),
             n: rows.iter().map(|r| r.contact_el).collect(),
             status,
-            later_converged: sta_inc.get(&(s, i)).map_or(false, |r| r.att > a),
+            later_converged: sta_inc.get(&(s, i)).is_some_and(|r| r.att > a),
         });
     }
 
@@ -414,11 +422,15 @@ pub fn diagnose(
         };
         let first = th.d1_k_min.max(3); // 1-based k -> 0-based index k-1
         if k > first && (first - 1..k - 1).any(|i| grows(i) && grows(i + 1)) {
-            let sev = if a.status != Status::Converged && !a.later_converged { Severity::Error } else { Severity::Warn };
+            let sev =
+                if a.status != Status::Converged && !a.later_converged { Severity::Error } else { Severity::Warn };
             let mn = a.r.iter().flatten().copied().reduce(f64::min).unwrap_or(f64::NAN);
             let last = a.r.last().copied().flatten().unwrap_or(f64::NAN);
             let g = if mn > 0.0 { last / mn } else { 0.0 };
-            cands.push(Cand { f: finding("D1", sev, loc, att_evidence(a, th), 1, ADV_DIVERGED), score: if g.is_finite() { g } else { 0.0 } });
+            cands.push(Cand {
+                f: finding("D1", sev, loc, att_evidence(a, th), 1, ADV_DIVERGED),
+                score: if g.is_finite() { g } else { 0.0 },
+            });
         }
 
         // D2: blow-up relative to the minimum of earlier iterations, or absolute.
@@ -426,7 +438,7 @@ pub fn diagnose(
         let mut worst: Option<f64> = None;
         for x in a.r.iter() {
             if let Some(x) = *x {
-                let rel = run_min.map_or(false, |m| m > 0.0 && x > th.d2_floor_pct && x >= th.d2_factor * m);
+                let rel = run_min.is_some_and(|m| m > 0.0 && x > th.d2_floor_pct && x >= th.d2_factor * m);
                 if x > th.d2_abs || rel {
                     let ratio = run_min.filter(|m| *m > 0.0).map_or(x, |m| x / m);
                     worst = Some(worst.map_or(ratio, |w: f64| w.max(ratio)));
@@ -441,7 +453,10 @@ pub fn diagnose(
         // D3: missing (NaN / overflow) value after the first iteration.
         let bad = (1..k).any(|i| a.r[i].is_none() || a.c[i].is_none() || a.flux[i].is_none() || a.temp[i].is_none());
         if bad {
-            cands.push(Cand { f: finding("D3", Severity::Error, loc, att_evidence(a, th), 1, ADV_DIVERGED), score: 0.0 });
+            cands.push(Cand {
+                f: finding("D3", Severity::Error, loc, att_evidence(a, th), 1, ADV_DIVERGED),
+                score: 0.0,
+            });
         }
     }
 
@@ -456,14 +471,14 @@ pub fn diagnose(
             for a in wa.iter().filter(|a| (a.step, a.inc) == inc && a.status == Status::Converged) {
                 if a.att == 1 && a.k() > th.slow_k {
                     hit1 = true;
-                    if w1.map_or(true, |(_, k)| a.k() >= k) {
+                    if w1.is_none_or(|(_, k)| a.k() >= k) {
                         w1 = Some((a, a.k()));
                     }
                 }
                 if let Some(rh) = rho(&a.r, th) {
                     if rh > th.slow_rho_lo && rh < th.slow_rho_hi && a.k() >= th.slow_rho_k_min {
                         hit2 = true;
-                        if w2.map_or(true, |(_, x)| rh >= x) {
+                        if w2.is_none_or(|(_, x)| rh >= x) {
                             w2 = Some((a, rh));
                         }
                     }
@@ -474,11 +489,17 @@ pub fn diagnose(
         }
         if c1 >= th.slow_min_incs {
             let a = w1.unwrap().0;
-            cands.push(Cand { f: finding("W1", Severity::Warn, Some((a.step, a.inc, a.att)), att_evidence(a, th), c1, ADV_SLOW), score: a.k() as f64 });
+            cands.push(Cand {
+                f: finding("W1", Severity::Warn, Some((a.step, a.inc, a.att)), att_evidence(a, th), c1, ADV_SLOW),
+                score: a.k() as f64,
+            });
         }
         if c2 >= th.slow_min_incs {
             let (a, rh) = w2.unwrap();
-            cands.push(Cand { f: finding("W2", Severity::Warn, Some((a.step, a.inc, a.att)), att_evidence(a, th), c2, ADV_SLOW), score: rh });
+            cands.push(Cand {
+                f: finding("W2", Severity::Warn, Some((a.step, a.inc, a.att)), att_evidence(a, th), c2, ADV_SLOW),
+                score: rh,
+            });
         }
     }
 
@@ -490,7 +511,10 @@ pub fn diagnose(
             let total: u32 = cut.iter().map(|(_, a)| a - 1).sum();
             let worst = cut.iter().fold(cut[0], |w, c| if c.1 >= w.1 { c } else { w });
             let ev: Ev = vec![("att", worst.1 as f64), ("cutbacks", total as f64)];
-            cands.push(Cand { f: finding("B1", Severity::Warn, Some(((worst.0).0, (worst.0).1, worst.1)), ev, cut.len(), ADV_CUTBACK), score: worst.1 as f64 });
+            cands.push(Cand {
+                f: finding("B1", Severity::Warn, Some(((worst.0).0, (worst.0).1, worst.1)), ev, cut.len(), ADV_CUTBACK),
+                score: worst.1 as f64,
+            });
         }
 
         // B2: runs of consecutive increments with att > 1.
@@ -511,7 +535,10 @@ pub fn diagnose(
         }
         if let (true, Some((idx, k))) = (best >= th.loop_consecutive, best_end) {
             let ev: Ev = vec![("consecutive", best as f64), ("att", atts[idx].1 as f64)];
-            cands.push(Cand { f: finding("B2", Severity::Error, Some((k.0, k.1, atts[idx].1)), ev, runs, ADV_LOOP), score: best as f64 });
+            cands.push(Cand {
+                f: finding("B2", Severity::Error, Some((k.0, k.1, atts[idx].1)), ev, runs, ADV_LOOP),
+                score: best as f64,
+            });
         }
 
         // B3: any increment reaching att >= loop_att.
@@ -519,18 +546,33 @@ pub fn diagnose(
         if !deep.is_empty() {
             let worst = deep.iter().fold(deep[0], |w, c| if c.1 >= w.1 { c } else { w });
             let ev: Ev = vec![("att", worst.1 as f64)];
-            cands.push(Cand { f: finding("B3", Severity::Error, Some(((worst.0).0, (worst.0).1, worst.1)), ev, deep.len(), ADV_LOOP), score: worst.1 as f64 });
+            cands.push(Cand {
+                f: finding("B3", Severity::Error, Some(((worst.0).0, (worst.0).1, worst.1)), ev, deep.len(), ADV_LOOP),
+                score: worst.1 as f64,
+            });
         }
 
         // B4: increment size collapsed relative to the step maximum, with recent cutbacks.
         let latest = win.iter().rev().find_map(|k| sta_inc.get(k).copied());
         if let Some(l) = latest {
-            let step_max = sta_f.iter().filter(|r| r.step == l.step && r.inc_time.is_finite()).map(|r| r.inc_time).fold(0.0, f64::max);
+            let step_max = sta_f
+                .iter()
+                .filter(|r| r.step == l.step && r.inc_time.is_finite())
+                .map(|r| r.inc_time)
+                .fold(0.0, f64::max);
             let tail = &atts[atts.len().saturating_sub(th.shrink_window)..];
             let cutbacks: u32 = tail.iter().map(|(_, a)| a.saturating_sub(1)).sum();
             if step_max > 0.0 && l.inc_time <= th.shrink_ratio * step_max && cutbacks >= th.shrink_cutbacks {
-                let ev: Ev = vec![("inc_time", l.inc_time), ("inc_time_max", step_max), ("cutbacks", cutbacks as f64), ("att", l.att as f64)];
-                cands.push(Cand { f: finding("B4", Severity::Error, Some((l.step, l.inc, l.att)), ev, 1, ADV_LOOP), score: step_max / l.inc_time.max(f64::MIN_POSITIVE) });
+                let ev: Ev = vec![
+                    ("inc_time", l.inc_time),
+                    ("inc_time_max", step_max),
+                    ("cutbacks", cutbacks as f64),
+                    ("att", l.att as f64),
+                ];
+                cands.push(Cand {
+                    f: finding("B4", Severity::Error, Some((l.step, l.inc, l.att)), ev, 1, ADV_LOOP),
+                    score: step_max / l.inc_time.max(f64::MIN_POSITIVE),
+                });
             }
         }
     }
@@ -539,7 +581,10 @@ pub fn diagnose(
     if job_failed && (!sta_f.is_empty() || !cvg_f.is_empty()) {
         match attempts.last() {
             Some(a) if a.status == Status::Converged => {}
-            Some(a) => cands.push(Cand { f: finding("D4", Severity::Error, Some((a.step, a.inc, a.att)), att_evidence(a, th), 1, ADV_DIVERGED), score: 0.0 }),
+            Some(a) => cands.push(Cand {
+                f: finding("D4", Severity::Error, Some((a.step, a.inc, a.att)), att_evidence(a, th), 1, ADV_DIVERGED),
+                score: 0.0,
+            }),
             None => cands.push(Cand { f: finding("D4", Severity::Error, None, vec![], 1, ADV_DIVERGED), score: 0.0 }),
         }
     }
@@ -625,7 +670,7 @@ fn verdict_of(findings: &[Finding], have_telemetry: bool) -> Verdict {
             "D1" if f.severity != Severity::Error => continue,
             _ => Verdict::Diverged,
         };
-        if v.map_or(true, |x| cand.rank() > x.rank()) {
+        if v.is_none_or(|x| cand.rank() > x.rank()) {
             v = Some(cand);
         }
     }

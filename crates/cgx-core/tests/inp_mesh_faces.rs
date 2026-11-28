@@ -57,8 +57,14 @@ fn block_deck(nx: usize, ny: usize, nz: usize) -> String {
         for j in 0..ny {
             for i in 0..nx {
                 let n = [
-                    id(i, j, k), id(i + 1, j, k), id(i + 1, j + 1, k), id(i, j + 1, k),
-                    id(i, j, k + 1), id(i + 1, j, k + 1), id(i + 1, j + 1, k + 1), id(i, j + 1, k + 1),
+                    id(i, j, k),
+                    id(i + 1, j, k),
+                    id(i + 1, j + 1, k),
+                    id(i, j + 1, k),
+                    id(i, j, k + 1),
+                    id(i + 1, j, k + 1),
+                    id(i + 1, j + 1, k + 1),
+                    id(i, j + 1, k + 1),
                 ];
                 let n: Vec<String> = n.iter().map(|v| v.to_string()).collect();
                 s.push_str(&format!("{}, {}\n", e, n.join(", ")));
@@ -81,14 +87,8 @@ fn unit_cube() {
     assert_eq!(m.element_types, vec!["C3D8"]);
     let f = exterior_faces(&m);
     assert_eq!(f.len(), 6);
-    let expect = [
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, -1.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [-1.0, 0.0, 0.0],
-    ];
+    let expect =
+        [[0.0, 0.0, -1.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]];
     for (i, face) in f.iter().enumerate() {
         assert_eq!(face.face as usize, i + 1);
         assert_eq!(face.element, 1);
@@ -111,10 +111,7 @@ fn stacked_hexes_share_a_face() {
 
 #[test]
 fn tetra() {
-    let m = read(
-        "tet",
-        "*NODE\n1, 0, 0, 0\n2, 2, 0, 0\n3, 0, 3, 0\n4, 0, 0, 6\n*ELEMENT, TYPE=C3D4\n7, 1, 2, 3, 4\n",
-    );
+    let m = read("tet", "*NODE\n1, 0, 0, 0\n2, 2, 0, 0\n3, 0, 3, 0\n4, 0, 0, 6\n*ELEMENT, TYPE=C3D4\n7, 1, 2, 3, 4\n");
     let f = exterior_faces(&m);
     assert_eq!(f.len(), 4);
     // Faces: z=0 (3), x=0 (9), y=0 (6) and the slanted face with area vector (18, 12, 6)/2.
@@ -146,8 +143,14 @@ fn wedge() {
 fn c3d20_continuation_lines() {
     let mut s = String::from("*NODE\n");
     let corners = [
-        [0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.],
-        [0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.],
+        [0., 0., 0.],
+        [1., 0., 0.],
+        [1., 1., 0.],
+        [0., 1., 0.],
+        [0., 0., 1.],
+        [1., 0., 1.],
+        [1., 1., 1.],
+        [0., 1., 1.],
     ];
     for (i, c) in corners.iter().enumerate() {
         s.push_str(&format!("{}, {}, {}, {}\n", i + 1, c[0], c[1], c[2]));

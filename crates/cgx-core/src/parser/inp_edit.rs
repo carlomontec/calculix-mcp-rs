@@ -172,7 +172,8 @@ impl PlannedFile {
         while i < changes.len() {
             // Group changes whose gap is at most 2 * context.
             let mut j = i + 1;
-            while j < changes.len() && changes[j].start - (changes[j - 1].start + changes[j - 1].old_len) <= 2 * context {
+            while j < changes.len() && changes[j].start - (changes[j - 1].start + changes[j - 1].old_len) <= 2 * context
+            {
                 j += 1;
             }
             let group = &changes[i..j];
@@ -326,7 +327,9 @@ struct Extent {
 fn extent(lines: &[Vec<u8>], header_line: usize) -> R<Extent> {
     let h_start = header_line.wrapping_sub(1);
     if h_start >= lines.len() || kind(&lines[h_start]) != Kind::Header {
-        return invalid(format!("line {header_line} is no longer a keyword line: the deck changed since it was scanned"));
+        return invalid(format!(
+            "line {header_line} is no longer a keyword line: the deck changed since it was scanned"
+        ));
     }
     let mut text = String::from_utf8_lossy(content(&lines[h_start])).trim().to_string();
     let mut i = h_start;
@@ -473,7 +476,10 @@ fn edit_header(lines: &[Vec<u8>], ext: &Extent, name: &str, value: Option<&str>,
                         .collect::<Vec<_>>()
                 })
                 .collect();
-            return Err(EditError::Invalid { message: format!("the card has no parameter {name_u} to remove"), valid: present });
+            return Err(EditError::Invalid {
+                message: format!("the card has no parameter {name_u} to remove"),
+                valid: present,
+            });
         }
     }
     let mut out = Vec::new();
@@ -611,9 +617,7 @@ fn resolve<'a>(scan: &'a InpScan, addr: &CardAddress) -> R<&'a InpCard> {
     if let Some((name, value)) = &addr.param {
         let (name, value) = (name.trim().to_uppercase(), strip_quotes(value).to_uppercase());
         matches.retain(|c| {
-            c.params
-                .iter()
-                .any(|(k, v)| *k == name && strip_quotes(v.as_deref().unwrap_or("")).to_uppercase() == value)
+            c.params.iter().any(|(k, v)| *k == name && strip_quotes(v.as_deref().unwrap_or("")).to_uppercase() == value)
         });
     }
     let describe = || {
@@ -638,7 +642,11 @@ fn resolve<'a>(scan: &'a InpScan, addr: &CardAddress) -> R<&'a InpCard> {
             valid: matches.iter().take(200).map(|c| fmt_ref(&card_ref(c))).collect(),
         }),
         None if matches.len() > 1 => Err(EditError::AmbiguousCard {
-            message: format!("{} cards match {}; pass index (0-based) or narrow with step/param", matches.len(), describe()),
+            message: format!(
+                "{} cards match {}; pass index (0-based) or narrow with step/param",
+                matches.len(),
+                describe()
+            ),
             candidates: matches.iter().take(200).map(|c| card_ref(c)).collect(),
         }),
         None => Ok(matches[0]),
@@ -669,12 +677,7 @@ fn edit_name(path: &Path) -> String {
 /// `*INCLUDE` header edit that points `INPUT=` to `new_value` (quotes of the old value kept).
 fn include_edit(lines: &[Vec<u8>], card: &InpCard, new_value: &str, ord: usize) -> R<Vec<LineEdit>> {
     let ext = extent(lines, card.line)?;
-    let raw = card
-        .params
-        .iter()
-        .find(|(k, _)| k == "INPUT")
-        .and_then(|(_, v)| v.clone())
-        .unwrap_or_default();
+    let raw = card.params.iter().find(|(k, _)| k == "INPUT").and_then(|(_, v)| v.clone()).unwrap_or_default();
     let value = match raw.chars().next() {
         Some(q) if q == '"' || q == '\'' => format!("{q}{new_value}{q}"),
         _ => new_value.to_string(),
@@ -742,7 +745,9 @@ pub fn plan_edit(root: &Path, ops: &[EditOp], output: &Path) -> R<EditPlan> {
                     for part in l.lines() {
                         let t = part.trim();
                         if t.starts_with('*') && !t.starts_with("**") {
-                            return invalid(format!("data line {part:?} starts with '*' and would be read as a keyword card"));
+                            return invalid(format!(
+                                "data line {part:?} starts with '*' and would be read as a keyword card"
+                            ));
                         }
                     }
                     repl.extend(text_lines(l, &pl.files[fi].eol));
@@ -779,7 +784,8 @@ pub fn plan_edit(root: &Path, ops: &[EditOp], output: &Path) -> R<EditPlan> {
                 if !kws.iter().any(|k| k == "STEP") || !kws.iter().any(|k| k == "END STEP") {
                     return invalid("append_step text must contain *STEP and *END STEP");
                 }
-                let anchor = before.cards.iter().filter(|c| c.keyword == "END STEP" && c.file == root).max_by_key(|c| c.line);
+                let anchor =
+                    before.cards.iter().filter(|c| c.keyword == "END STEP" && c.file == root).max_by_key(|c| c.line);
                 let fi = pl.idx(root)?;
                 let (at, line, header) = match anchor {
                     Some(c) => {
@@ -787,7 +793,9 @@ pub fn plan_edit(root: &Path, ops: &[EditOp], output: &Path) -> R<EditPlan> {
                         (extent(&pl.files[fi].lines, c.line)?.d_end, c.line, header_of(c))
                     }
                     None if before.cards.iter().any(|c| c.keyword == "STEP") => {
-                        return invalid("the last *END STEP is not in the root deck; append_step only appends to the root file");
+                        return invalid(
+                            "the last *END STEP is not in the root deck; append_step only appends to the root file",
+                        );
                     }
                     None => (pl.files[fi].lines.len(), pl.files[fi].lines.len(), String::new()),
                 };
@@ -845,7 +853,8 @@ pub fn plan_edit(root: &Path, ops: &[EditOp], output: &Path) -> R<EditPlan> {
     }
     let uses_relative = !before.includes.is_empty() || !before.external_refs().is_empty();
     if uses_relative {
-        let same_dir = |a: &Path, b: &Path| canonical_target(&a.join("x")).parent() == canonical_target(&b.join("x")).parent();
+        let same_dir =
+            |a: &Path, b: &Path| canonical_target(&a.join("x")).parent() == canonical_target(&b.join("x")).parent();
         let od = output.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
         let rd = root.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
         if !same_dir(od, rd) {
@@ -857,10 +866,17 @@ pub fn plan_edit(root: &Path, ops: &[EditOp], output: &Path) -> R<EditPlan> {
     }
     let mut seen: HashSet<PathBuf> = HashSet::new();
     for f in pl.files.iter_mut() {
-        f.path = if f.role == FileRole::Root { output.to_path_buf() } else { f.original.with_file_name(edit_name(&f.original)) };
+        f.path = if f.role == FileRole::Root {
+            output.to_path_buf()
+        } else {
+            f.original.with_file_name(edit_name(&f.original))
+        };
         let c = canonical_target(&f.path);
         if tree.contains(&c) {
-            return invalid(format!("{} is a file of the original deck; originals are never overwritten", f.path.display()));
+            return invalid(format!(
+                "{} is a file of the original deck; originals are never overwritten",
+                f.path.display()
+            ));
         }
         if !seen.insert(c) {
             return invalid(format!("two edited files would be written to {}", f.path.display()));
@@ -908,7 +924,11 @@ impl EditPlan {
     /// whose include lines are absolute, and the directory is removed afterwards.
     /// (An `INPUT=` set by the user on an include card stays relative.)
     pub fn scan_preview(&self) -> R<InpScan> {
-        let dir = std::env::temp_dir().join(format!("cgx-inp-edit-{}-{}", std::process::id(), SCRATCH.fetch_add(1, Ordering::SeqCst)));
+        let dir = std::env::temp_dir().join(format!(
+            "cgx-inp-edit-{}-{}",
+            std::process::id(),
+            SCRATCH.fetch_add(1, Ordering::SeqCst)
+        ));
         std::fs::create_dir_all(&dir)?;
         let result = self.preview_in(&dir);
         let _ = std::fs::remove_dir_all(&dir);
@@ -916,8 +936,18 @@ impl EditPlan {
     }
 
     fn preview_in(&self, dir: &Path) -> R<InpScan> {
-        let paths: Vec<PathBuf> = (0..self.files.len()).map(|i| dir.join(format!("f{i}_{}", self.files[i].path.file_name().and_then(|n| n.to_str()).unwrap_or("deck")))).collect();
-        let abs = |p: &Path| if p.is_absolute() { p.to_path_buf() } else { std::env::current_dir().map(|c| c.join(p)).unwrap_or_else(|_| p.to_path_buf()) };
+        let paths: Vec<PathBuf> = (0..self.files.len())
+            .map(|i| {
+                dir.join(format!("f{i}_{}", self.files[i].path.file_name().and_then(|n| n.to_str()).unwrap_or("deck")))
+            })
+            .collect();
+        let abs = |p: &Path| {
+            if p.is_absolute() {
+                p.to_path_buf()
+            } else {
+                std::env::current_dir().map(|c| c.join(p)).unwrap_or_else(|_| p.to_path_buf())
+            }
+        };
         for (i, f) in self.files.iter().enumerate() {
             let mut extra: Vec<LineEdit> = Vec::new();
             let mut ord = 1_000_000;
@@ -927,11 +957,17 @@ impl EditPlan {
             }
             for inc in self.before.includes.iter().filter(|inc| inc.included_from == f.original) {
                 let idx = inc.line_number - 1;
-                let touched = f.edits.iter().any(|e| e.start <= idx && idx < e.end) || self.links.iter().any(|l| l.parent == i && l.card.line == inc.line_number);
+                let touched = f.edits.iter().any(|e| e.start <= idx && idx < e.end)
+                    || self.links.iter().any(|l| l.parent == i && l.card.line == inc.line_number);
                 if touched {
                     continue;
                 }
-                if let Some(card) = self.before.cards.iter().find(|c| c.keyword == "INCLUDE" && c.file == f.original && c.line == inc.line_number) {
+                if let Some(card) = self
+                    .before
+                    .cards
+                    .iter()
+                    .find(|c| c.keyword == "INCLUDE" && c.file == f.original && c.line == inc.line_number)
+                {
                     ord += 1;
                     extra.extend(include_edit(&f.lines, card, &abs(&inc.resolved_path).to_string_lossy(), ord)?);
                 }

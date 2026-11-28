@@ -3,8 +3,8 @@
 
 //! Parser, consolidator, and inspection engine for CalculiX / Abaqus `.inp` and `.nam` decks.
 
-use crate::parser::inp_cards::ScanLimits;
 use crate::model::{merge_set_into, Set, SetType};
+use crate::parser::inp_cards::ScanLimits;
 use crate::{FrdError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -85,11 +85,7 @@ struct Budget {
 
 impl Budget {
     fn new() -> Self {
-        Budget {
-            limits: ScanLimits::default(),
-            files_opened: 0,
-            total_bytes: 0,
-        }
+        Budget { limits: ScanLimits::default(), files_opened: 0, total_bytes: 0 }
     }
 
     /// Check depth and file-count limits, then account for one more opened file.
@@ -127,12 +123,8 @@ fn circular_error(path: &Path) -> FrdError {
 }
 
 fn read_file(path: &Path) -> Result<String> {
-    fs::read_to_string(path).map_err(|e| {
-        FrdError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to read {}: {}", path.display(), e),
-        ))
-    })
+    fs::read_to_string(path)
+        .map_err(|e| FrdError::Io(std::io::Error::new(e.kind(), format!("Failed to read {}: {}", path.display(), e))))
 }
 
 fn is_comment_or_blank(line: &str) -> bool {
@@ -200,20 +192,9 @@ pub fn consolidate_inp<P: AsRef<Path>>(root_path: P) -> Result<(String, InpConso
     let mut output = String::new();
     let mut stack: Vec<PathBuf> = Vec::new();
     let mut budget = Budget::new();
-    let mut stats = InpConsolidateStats {
-        root_file: root_path.clone(),
-        ..Default::default()
-    };
+    let mut stats = InpConsolidateStats { root_file: root_path.clone(), ..Default::default() };
 
-    consolidate_recursive(
-        &root_path,
-        &root_path,
-        &mut output,
-        &mut stack,
-        &mut budget,
-        &mut stats,
-        0,
-    )?;
+    consolidate_recursive(&root_path, &root_path, &mut output, &mut stack, &mut budget, &mut stats, 0)?;
 
     stats.total_lines_written = output.lines().count();
     Ok((output, stats))
@@ -266,11 +247,7 @@ fn consolidate_body(
 
         let (header, next) = collect_header(&lines, i);
         let is_include = header.to_uppercase().starts_with("*INCLUDE");
-        let include_target = if is_include {
-            parse_include_target(&header)
-        } else {
-            None
-        };
+        let include_target = if is_include { parse_include_target(&header) } else { None };
 
         if let Some(target_rel) = include_target {
             let target_path = parent_dir.join(&target_rel);
@@ -281,11 +258,7 @@ fn consolidate_body(
                     current_file.display()
                 )));
             }
-            let display_name = target_path
-                .strip_prefix(root_dir)
-                .unwrap_or(&target_path)
-                .display()
-                .to_string();
+            let display_name = target_path.strip_prefix(root_dir).unwrap_or(&target_path).display().to_string();
 
             output.push_str(&format!(
                 "** ====================================================================\n\
@@ -342,10 +315,7 @@ fn consolidate_body(
 /// inline it) but counted once in `total_files_count`.
 pub fn inspect_inp<P: AsRef<Path>>(root_path: P) -> Result<InpSummary> {
     let root_path = root_path.as_ref().to_path_buf();
-    let mut summary = InpSummary {
-        root_file: root_path.clone(),
-        ..Default::default()
-    };
+    let mut summary = InpSummary { root_file: root_path.clone(), ..Default::default() };
 
     let mut stack: Vec<PathBuf> = Vec::new();
     let mut seen: HashSet<PathBuf> = HashSet::new();
@@ -401,11 +371,7 @@ fn inspect_body(
         if let Some(target_rel) = parse_include_target(trimmed) {
             let target_path = parent_dir.join(&target_rel);
             let exists = target_path.exists();
-            let size = if exists {
-                fs::metadata(&target_path).map(|m| m.len()).unwrap_or(0)
-            } else {
-                0
-            };
+            let size = if exists { fs::metadata(&target_path).map(|m| m.len()).unwrap_or(0) } else { 0 };
 
             summary.includes.push(InpInclude {
                 raw_target: target_rel.clone(),
@@ -431,7 +397,10 @@ fn inspect_body(
                         summary.materials.push(name);
                     }
                 }
-            } else if upper.starts_with("*NODE") && !upper.starts_with("*NODE FILE") && !upper.starts_with("*NODE PRINT") {
+            } else if upper.starts_with("*NODE")
+                && !upper.starts_with("*NODE FILE")
+                && !upper.starts_with("*NODE PRINT")
+            {
                 summary.has_nodes = true;
             } else if upper.starts_with("*ELEMENT") && !upper.starts_with("*ELEMENT OUTPUT") {
                 summary.has_elements = true;
@@ -488,26 +457,24 @@ pub fn parse_sets_from_str(content: &str) -> HashMap<String, Set> {
     let mut current_is_generate = false;
     let mut current_ids: Vec<u32> = Vec::new();
 
-    let flush_set = |name: &Option<String>,
-                     stype: &Option<SetType>,
-                     ids: &mut Vec<u32>,
-                     sets: &mut HashMap<String, Set>| {
-        if let (Some(n), Some(t)) = (name, stype) {
-            let entry = sets.entry(n.clone()).or_insert_with(|| Set {
-                name: n.clone(),
-                set_type: t.clone(),
-                node_ids: Vec::new(),
-                element_ids: Vec::new(),
-            });
+    let flush_set =
+        |name: &Option<String>, stype: &Option<SetType>, ids: &mut Vec<u32>, sets: &mut HashMap<String, Set>| {
+            if let (Some(n), Some(t)) = (name, stype) {
+                let entry = sets.entry(n.clone()).or_insert_with(|| Set {
+                    name: n.clone(),
+                    set_type: t.clone(),
+                    node_ids: Vec::new(),
+                    element_ids: Vec::new(),
+                });
 
-            match t {
-                SetType::Node => entry.node_ids.extend(ids.drain(..)),
-                SetType::Element => entry.element_ids.extend(ids.drain(..)),
-                SetType::Mixed => entry.node_ids.extend(ids.drain(..)),
+                match t {
+                    SetType::Node => entry.node_ids.append(ids),
+                    SetType::Element => entry.element_ids.append(ids),
+                    SetType::Mixed => entry.node_ids.append(ids),
+                }
             }
-        }
-        ids.clear();
-    };
+            ids.clear();
+        };
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -517,12 +484,7 @@ pub fn parse_sets_from_str(content: &str) -> HashMap<String, Set> {
 
         if trimmed.starts_with('*') {
             // Flush any ongoing set
-            flush_set(
-                &current_set_name,
-                &current_set_type,
-                &mut current_ids,
-                &mut sets,
-            );
+            flush_set(&current_set_name, &current_set_type, &mut current_ids, &mut sets);
             current_set_name = None;
             current_set_type = None;
             current_is_generate = false;
@@ -548,11 +510,7 @@ pub fn parse_sets_from_str(content: &str) -> HashMap<String, Set> {
                 let parts: Vec<&str> = trimmed.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
                 if parts.len() >= 2 {
                     if let (Ok(start), Ok(end)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
-                        let step = if parts.len() >= 3 {
-                            parts[2].parse::<u32>().unwrap_or(1).max(1)
-                        } else {
-                            1
-                        };
+                        let step = if parts.len() >= 3 { parts[2].parse::<u32>().unwrap_or(1).max(1) } else { 1 };
                         let mut curr = start;
                         while curr <= end {
                             current_ids.push(curr);
@@ -572,12 +530,7 @@ pub fn parse_sets_from_str(content: &str) -> HashMap<String, Set> {
         }
     }
 
-    flush_set(
-        &current_set_name,
-        &current_set_type,
-        &mut current_ids,
-        &mut sets,
-    );
+    flush_set(&current_set_name, &current_set_type, &mut current_ids, &mut sets);
 
     for set in sets.values_mut() {
         set.dedup_ids();

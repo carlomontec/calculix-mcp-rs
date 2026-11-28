@@ -10,20 +10,10 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use std::path::Path;
 use std::time::Duration;
 
-pub fn run_tui(
-    model: FrdModel,
-    file_path: &Path,
-    initial_set: Option<&str>,
-) -> anyhow::Result<()> {
-    let filename = file_path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("model.frd")
-        .to_string();
+pub fn run_tui(model: FrdModel, file_path: &Path, initial_set: Option<&str>) -> anyhow::Result<()> {
+    let filename = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("model.frd").to_string();
 
-    let file_size_kb = std::fs::metadata(file_path)
-        .map(|m| m.len() as f64 / 1024.0)
-        .unwrap_or(0.0);
+    let file_size_kb = std::fs::metadata(file_path).map(|m| m.len() as f64 / 1024.0).unwrap_or(0.0);
 
     let mut app = AppState::new(model, filename, file_size_kb, initial_set);
 
@@ -38,10 +28,7 @@ pub fn run_tui(
     res
 }
 
-fn run_loop(
-    terminal: &mut ratatui::DefaultTerminal,
-    app: &mut AppState,
-) -> anyhow::Result<()> {
+fn run_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut AppState) -> anyhow::Result<()> {
     while !app.should_quit {
         terminal.draw(|f| ui::draw(f, app))?;
 
@@ -54,7 +41,11 @@ fn run_loop(
 
                 if app.show_help_modal {
                     match key.code {
-                        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') | KeyCode::Enter | KeyCode::Char(' ') => {
+                        KeyCode::Esc
+                        | KeyCode::Char('q')
+                        | KeyCode::Char('?')
+                        | KeyCode::Enter
+                        | KeyCode::Char(' ') => {
                             app.show_help_modal = false;
                         }
                         _ => {}
@@ -163,10 +154,8 @@ fn run_loop(
                         KeyCode::PageUp => {
                             app.selected_step_idx = app.selected_step_idx.saturating_sub(5);
                         }
-                        KeyCode::PageDown => {
-                            if !app.model.steps.is_empty() {
-                                app.selected_step_idx = (app.selected_step_idx + 5).min(app.model.steps.len() - 1);
-                            }
+                        KeyCode::PageDown if !app.model.steps.is_empty() => {
+                            app.selected_step_idx = (app.selected_step_idx + 5).min(app.model.steps.len() - 1);
                         }
 
                         _ => {}

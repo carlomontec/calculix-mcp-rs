@@ -6,8 +6,8 @@
 
 use crate::error::ToolError;
 use crate::frd_tools::{num, Page, Table};
-use crate::paths::Roots;
 use crate::jobs::{dir_size, rss_mb, JobManager, Manifest, Prepared, Solver, State, TelemetrySource};
+use crate::paths::Roots;
 use cgx_core::{consolidate_inp, diagnose, parse_cvg, parse_sta, scan_cards, DiagCtx, ScanLimits, Thresholds};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -88,9 +88,7 @@ fn read_json(path: &Path) -> Option<(Vec<(u32, bool)>, Option<bool>)> {
     let steps = v["steps"]
         .as_array()
         .map(|a| {
-            a.iter()
-                .filter_map(|s| Some((s["step_number"].as_u64()? as u32, s["converged"].as_bool()?)))
-                .collect()
+            a.iter().filter_map(|s| Some((s["step_number"].as_u64()? as u32, s["converged"].as_bool()?))).collect()
         })
         .unwrap_or_default();
     Some((steps, v["meta"]["success"].as_bool()))
@@ -197,8 +195,12 @@ pub fn run_diagnose(roots: &Roots, p: CcxDiagnoseIn, job: Option<JobView>) -> Re
             // Contact count and force residual of the last iteration of the converged attempt.
             let last = cvg.iter().rfind(|c| (c.step, c.inc, c.att) == (r.step, r.inc, r.att));
             vec![
-                json!(r.step), json!(r.inc), json!(r.att), json!(r.itrs),
-                num(r.tot_time as f32), num(r.inc_time as f32),
+                json!(r.step),
+                json!(r.inc),
+                json!(r.att),
+                json!(r.itrs),
+                num(r.tot_time as f32),
+                num(r.inc_time as f32),
                 last.map(|c| json!(c.contact_el)).unwrap_or(Value::Null),
                 last.and_then(|c| c.resid_force).map(|v| num(v as f32)).unwrap_or(Value::Null),
             ]
@@ -233,7 +235,9 @@ pub fn run_diagnose(roots: &Roots, p: CcxDiagnoseIn, job: Option<JobView>) -> Re
             })
             .collect(),
         increments: Table {
-            columns: ["step", "inc", "att", "itrs", "tot_time", "inc_time", "contact_el", "resid_force_pct"].map(String::from).to_vec(),
+            columns: ["step", "inc", "att", "itrs", "tot_time", "inc_time", "contact_el", "resid_force_pct"]
+                .map(String::from)
+                .to_vec(),
             rows,
         },
         solver_messages: d.solver_messages.into_iter().take(5).collect(),
@@ -284,12 +288,19 @@ fn valid_jobname(name: &str) -> bool {
 
 /// Preflight the deck and copy it, with every file it references, into a fresh run directory.
 /// Blocking. The original deck directory is never written to.
-pub fn prepare_solve(roots: &Roots, jobs: &JobManager, p: CcxSolveIn) -> Result<(Prepared, usize, Vec<String>), ToolError> {
+pub fn prepare_solve(
+    roots: &Roots,
+    jobs: &JobManager,
+    p: CcxSolveIn,
+) -> Result<(Prepared, usize, Vec<String>), ToolError> {
     let Solver { name: solver, path: binary, json } = jobs.solver(p.solver.as_deref())?;
     let deck = roots.existing(&p.inp_path, &["inp"])?;
     let jobname = deck.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
     if !valid_jobname(&jobname) {
-        return Err(ToolError::invalid(format!("deck name '{}' is not usable as a job name (letters, digits, _ - . only)", jobname)));
+        return Err(ToolError::invalid(format!(
+            "deck name '{}' is not usable as a job name (letters, digits, _ - . only)",
+            jobname
+        )));
     }
 
     let scan = scan_cards(&deck, &ScanLimits::default())
@@ -300,7 +311,9 @@ pub fn prepare_solve(roots: &Roots, jobs: &JobManager, p: CcxSolveIn) -> Result<
         .iter()
         .filter(|i| !i.exists)
         .map(|i| format!("{}:{} -> {}", roots.display(&i.included_from), i.line_number, i.raw_target))
-        .chain(refs.iter().filter(|r| !r.exists).map(|r| format!("{}:{} -> {}", roots.display(&r.file), r.line, r.target)))
+        .chain(
+            refs.iter().filter(|r| !r.exists).map(|r| format!("{}:{} -> {}", roots.display(&r.file), r.line, r.target)),
+        )
         .collect();
     if !missing.is_empty() {
         return Err(ToolError::new("DECK_INVALID", format!("{} referenced file(s) are missing", missing.len()))
@@ -309,7 +322,9 @@ pub fn prepare_solve(roots: &Roots, jobs: &JobManager, p: CcxSolveIn) -> Result<
     }
     let flags: Vec<String> = scan.flags().into_iter().map(String::from).collect();
     if flags.iter().any(|f| f == "NO_STEPS") {
-        return Err(ToolError::new("DECK_INVALID", "the deck has no *STEP").hint("Call inp_inspect to review the deck."));
+        return Err(
+            ToolError::new("DECK_INVALID", "the deck has no *STEP").hint("Call inp_inspect to review the deck.")
+        );
     }
 
     // Nothing the deck pulls in may come from outside the allowed roots.
@@ -320,7 +335,10 @@ pub fn prepare_solve(roots: &Roots, jobs: &JobManager, p: CcxSolveIn) -> Result<
     let mut files: Vec<(PathBuf, Option<PathBuf>, bool)> = Vec::new(); // (source, path under the deck dir, inlinable)
     for (source, inlinable) in sources {
         if !roots.contains(&source) {
-            return Err(ToolError::new("PATH_OUTSIDE_ROOTS", format!("the deck references {} outside the allowed roots", source.display())));
+            return Err(ToolError::new(
+                "PATH_OUTSIDE_ROOTS",
+                format!("the deck references {} outside the allowed roots", source.display()),
+            ));
         }
         let canonical = source.canonicalize().map_err(ToolError::internal)?;
         let rel = canonical.strip_prefix(&deck_dir).ok().map(Path::to_path_buf);
@@ -333,8 +351,14 @@ pub fn prepare_solve(roots: &Roots, jobs: &JobManager, p: CcxSolveIn) -> Result<
     // the layout cannot be mirrored, so the deck is flattened into one file instead.
     let flatten = files.iter().any(|f| f.1.is_none());
     if let Some(stuck) = files.iter().find(|f| flatten && f.1.is_none() && !f.2) {
-        return Err(ToolError::new("DECK_INVALID", format!("{} is referenced by FILE= and lies outside the deck directory; it cannot be inlined", stuck.0.display()))
-            .hint("Move the file under the deck directory."));
+        return Err(ToolError::new(
+            "DECK_INVALID",
+            format!(
+                "{} is referenced by FILE= and lies outside the deck directory; it cannot be inlined",
+                stuck.0.display()
+            ),
+        )
+        .hint("Move the file under the deck directory."));
     }
     let consolidated = if flatten {
         Some(consolidate_inp(&deck).map_err(|e| ToolError::new("DECK_INVALID", e.to_string()))?.0)
@@ -353,7 +377,8 @@ pub fn prepare_solve(roots: &Roots, jobs: &JobManager, p: CcxSolveIn) -> Result<
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent).map_err(ToolError::internal)?;
         }
-        std::fs::copy(source, &target).map_err(|e| ToolError::internal(format!("copying {}: {}", source.display(), e)))?;
+        std::fs::copy(source, &target)
+            .map_err(|e| ToolError::internal(format!("copying {}: {}", source.display(), e)))?;
         copied += 1;
     }
     if let Some(text) = &consolidated {
@@ -472,7 +497,12 @@ pub fn job_status(roots: &Roots, m: &Manifest, tail_lines: usize) -> CcxJobStatu
     let view = JobView::of(m);
     let verdict = (!sta.is_empty() || !cvg.is_empty() || json.is_some()).then(|| {
         let json_steps = read_json(&with_ext(&base, "json")).map(|j| j.0).unwrap_or_default();
-        let ctx = DiagCtx { running: view.running, exit_failed: view.failed, json_steps, stdout_tail: view.stdout_tail.clone() };
+        let ctx = DiagCtx {
+            running: view.running,
+            exit_failed: view.failed,
+            json_steps,
+            stdout_tail: view.stdout_tail.clone(),
+        };
         diagnose(&sta, &cvg, &ctx, &Thresholds::default(), None, 10).verdict.as_str().to_string()
     });
 
@@ -500,9 +530,13 @@ pub fn job_status(roots: &Roots, m: &Manifest, tail_lines: usize) -> CcxJobStatu
     });
 
     let next = match m.state {
-        State::Queued | State::Starting | State::Running | State::Cancelling => "Call ccx_job_status again with wait_s=30.",
+        State::Queued | State::Starting | State::Running | State::Cancelling => {
+            "Call ccx_job_status again with wait_s=30."
+        }
         State::Succeeded => "Call frd_summary on files.frd.",
-        State::Failed | State::TimedOut => "Call ccx_diagnose with this job_id, and ccx_job_status with tail_lines=40 to read the solver output.",
+        State::Failed | State::TimedOut => {
+            "Call ccx_diagnose with this job_id, and ccx_job_status with tail_lines=40 to read the solver output."
+        }
         State::Cancelled | State::Lost => "The job did not finish; call ccx_solve to run it again.",
     };
 
@@ -564,7 +598,10 @@ fn compact_telemetry(mut j: Value) -> Value {
                 }
             }
             if drop_bulk_arrays(step) {
-                cut.push(format!("step {}: per-node and per-element values replaced by counts (read <job>.dat, or query the .frd)", n));
+                cut.push(format!(
+                    "step {}: per-node and per-element values replaced by counts (read <job>.dat, or query the .frd)",
+                    n
+                ));
             }
         }
     }
@@ -657,9 +694,19 @@ pub fn job_list(jobs: &JobManager, root: &Path, p: CcxJobListIn) -> CcxJobListOu
         })
         .collect();
     let end = offset + found.len();
-    let page = Page { returned: found.len(), total, truncated: found.len() < total, next_offset: (end < total).then_some(end) };
+    let page = Page {
+        returned: found.len(),
+        total,
+        truncated: found.len() < total,
+        next_offset: (end < total).then_some(end),
+    };
     CcxJobListOut {
-        jobs: Table { columns: ["job_id", "state", "jobname", "label", "elapsed_s", "run_dir_mb", "telemetry_source"].map(String::from).to_vec(), rows },
+        jobs: Table {
+            columns: ["job_id", "state", "jobname", "label", "elapsed_s", "run_dir_mb", "telemetry_source"]
+                .map(String::from)
+                .to_vec(),
+            rows,
+        },
         page,
     }
 }
@@ -669,11 +716,16 @@ mod tests {
     use super::*;
 
     fn fixtures() -> Roots {
-        Roots::new(vec![PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../cgx-core/tests/fixtures/telemetry"))]).unwrap()
+        Roots::new(vec![PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../cgx-core/tests/fixtures/telemetry"))])
+            .unwrap()
     }
 
     fn run(job: &str) -> Result<CcxDiagnoseOut, ToolError> {
-        run_diagnose(&fixtures(), CcxDiagnoseIn { job_path: Some(job.into()), job_id: None, step: None, last_increments: None }, None)
+        run_diagnose(
+            &fixtures(),
+            CcxDiagnoseIn { job_path: Some(job.into()), job_id: None, step: None, last_increments: None },
+            None,
+        )
     }
 
     #[test]
@@ -699,8 +751,19 @@ mod tests {
     fn diagnose_works_without_json_for_a_stock_job() {
         let base = fixtures().creatable("chatter_failed", &[]).unwrap();
         assert!(!with_ext(&base, "json").exists());
-        let job = JobView { base, running: false, failed: false, stdout_tail: String::new(), telemetry_source: TelemetrySource::StaCvg };
-        let d = run_diagnose(&fixtures(), CcxDiagnoseIn { job_path: None, job_id: Some("x".into()), step: None, last_increments: None }, Some(job)).unwrap();
+        let job = JobView {
+            base,
+            running: false,
+            failed: false,
+            stdout_tail: String::new(),
+            telemetry_source: TelemetrySource::StaCvg,
+        };
+        let d = run_diagnose(
+            &fixtures(),
+            CcxDiagnoseIn { job_path: None, job_id: Some("x".into()), step: None, last_increments: None },
+            Some(job),
+        )
+        .unwrap();
         assert_eq!(d.verdict, "CONTACT_CHATTER");
         assert!(!d.coverage.json && d.coverage.sta_rows > 0);
         assert!(d.notes.iter().any(|n| n.starts_with("Stock CalculiX: no JSON telemetry")), "{:?}", d.notes);
@@ -708,7 +771,13 @@ mod tests {
 
     #[test]
     fn jobname_rules_and_tail() {
-        assert!(valid_jobname("beam_v2.1-a") && !valid_jobname("-j") && !valid_jobname(".hidden") && !valid_jobname("a b") && !valid_jobname(""));
+        assert!(
+            valid_jobname("beam_v2.1-a")
+                && !valid_jobname("-j")
+                && !valid_jobname(".hidden")
+                && !valid_jobname("a b")
+                && !valid_jobname("")
+        );
         let path = std::env::temp_dir().join(format!("calculix-mcp-tail-{}", std::process::id()));
         std::fs::write(&path, (1..=50).map(|i| format!("line {}", i)).collect::<Vec<_>>().join("\n")).unwrap();
         let t = tail_text(&path, 3, 4096).unwrap();
@@ -731,16 +800,38 @@ mod tests {
         std::fs::write(dir.join("root/shared/mat.inc"), "*MATERIAL, NAME=STEEL\n").unwrap();
         std::fs::write(dir.join("secret.inc"), "*MATERIAL, NAME=SECRET\n").unwrap();
         std::fs::write(dir.join("root/case/local.inp"), format!("*INCLUDE, INPUT=sub/mesh.inc\n{}", step)).unwrap();
-        std::fs::write(dir.join("root/case/shared.inp"), format!("*INCLUDE, INPUT=sub/mesh.inc\n*INCLUDE, INPUT=../shared/mat.inc\n{}", step)).unwrap();
-        std::fs::write(dir.join("root/case/escape.inp"), format!("*INCLUDE, INPUT=../../secret.inc\n{}", step)).unwrap();
+        std::fs::write(
+            dir.join("root/case/shared.inp"),
+            format!("*INCLUDE, INPUT=sub/mesh.inc\n*INCLUDE, INPUT=../shared/mat.inc\n{}", step),
+        )
+        .unwrap();
+        std::fs::write(dir.join("root/case/escape.inp"), format!("*INCLUDE, INPUT=../../secret.inc\n{}", step))
+            .unwrap();
         std::fs::write(dir.join("root/case/nostep.inp"), "*NODE\n1,0.,0.,0.\n").unwrap();
         std::fs::write(dir.join("root/case/broken.inp"), format!("*INCLUDE, INPUT=gone.inc\n{}", step)).unwrap();
         let fake = dir.join("fake_ccx");
         std::fs::write(&fake, "").unwrap();
 
         let roots = Roots::new(vec![dir.join("root")]).unwrap();
-        let jobs = JobManager::new(roots.first(), vec![Solver { name: "fake".into(), path: fake, json: true }], Vec::new(), std::time::Duration::from_millis(100));
-        let prep = |deck: &str| prepare_solve(&roots, &jobs, CcxSolveIn { inp_path: format!("case/{}", deck), solver: None, threads: Some(1), timeout_s: None, label: None });
+        let jobs = JobManager::new(
+            roots.first(),
+            vec![Solver { name: "fake".into(), path: fake, json: true }],
+            Vec::new(),
+            std::time::Duration::from_millis(100),
+        );
+        let prep = |deck: &str| {
+            prepare_solve(
+                &roots,
+                &jobs,
+                CcxSolveIn {
+                    inp_path: format!("case/{}", deck),
+                    solver: None,
+                    threads: Some(1),
+                    timeout_s: None,
+                    label: None,
+                },
+            )
+        };
 
         let (local, copied, _) = prep("local.inp").unwrap();
         assert_eq!(copied, 2);
@@ -749,13 +840,31 @@ mod tests {
         let (shared, copied, _) = prep("shared.inp").unwrap();
         assert_eq!(copied, 1, "flattened into a single deck");
         let text = std::fs::read_to_string(shared.run_dir.join("shared.inp")).unwrap();
-        assert!(text.contains("NAME=STEEL") && text.contains("1,0.,0.,0.") && !text.to_uppercase().contains("*INCLUDE"));
+        assert!(
+            text.contains("NAME=STEEL") && text.contains("1,0.,0.,0.") && !text.to_uppercase().contains("*INCLUDE")
+        );
 
         assert_eq!(prep("escape.inp").unwrap_err().code, "PATH_OUTSIDE_ROOTS");
         assert_eq!(prep("nostep.inp").unwrap_err().code, "DECK_INVALID");
         let broken = prep("broken.inp").unwrap_err();
         assert!(broken.code == "DECK_INVALID" && broken.valid[0].contains("gone.inc"));
-        assert_eq!(prepare_solve(&roots, &jobs, CcxSolveIn { inp_path: "case/local.inp".into(), solver: Some("pardiso".into()), threads: None, timeout_s: None, label: None }).err().unwrap().code, "UNKNOWN_SOLVER");
+        assert_eq!(
+            prepare_solve(
+                &roots,
+                &jobs,
+                CcxSolveIn {
+                    inp_path: "case/local.inp".into(),
+                    solver: Some("pardiso".into()),
+                    threads: None,
+                    timeout_s: None,
+                    label: None
+                }
+            )
+            .err()
+            .unwrap()
+            .code,
+            "UNKNOWN_SOLVER"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -765,8 +874,10 @@ mod tests {
         let rows: Vec<Value> = (0..300).map(|i| json!([i as f64, 0.0, 1.0])).collect();
         let ids: Vec<u32> = (1..=300).collect();
         let incs: Vec<Value> = (1..=8)
-            .map(|i| json!({"increment_number": i, "node_sets": {"NFIX_RF": {"set": "NFIX", "field": "RF",
-                "components": ["fx", "fy", "fz"], "nodes": ids, "values": rows, "total": [0.0, 0.0, 25.0]}}}))
+            .map(|i| {
+                json!({"increment_number": i, "node_sets": {"NFIX_RF": {"set": "NFIX", "field": "RF",
+                "components": ["fx", "fy", "fz"], "nodes": ids, "values": rows, "total": [0.0, 0.0, 25.0]}}})
+            })
             .collect();
         let modes: Vec<Value> = (1..=30).map(|i| json!({"mode_number": i, "frequency_hz": i as f64})).collect();
         let raw = json!({"meta": {"solver": "MUMPS", "num_threads": 1, "success": true},
@@ -784,11 +895,15 @@ mod tests {
         assert_eq!((set["nodes_count"].as_u64(), set["values_count"].as_u64()), (Some(300), Some(300)));
         assert_eq!(set["total"], json!([0.0, 0.0, 25.0]));
         assert!(set.get("values").is_none() && set.get("nodes").is_none());
-        assert_eq!((out["steps"][1]["modes"].as_array().unwrap().len(), out["steps"][1]["modes_total"].as_u64()), (20, Some(30)));
+        assert_eq!(
+            (out["steps"][1]["modes"].as_array().unwrap().len(), out["steps"][1]["modes_total"].as_u64()),
+            (20, Some(30))
+        );
         assert_eq!(out["reduced"].as_array().unwrap().len(), 3);
 
         // Small, flat telemetry passes through without a `reduced` note.
-        let small = compact_telemetry(json!({"meta": {"success": true}, "steps": [{"step_number": 1, "converged": true}]}));
+        let small =
+            compact_telemetry(json!({"meta": {"success": true}, "steps": [{"step_number": 1, "converged": true}]}));
         assert!(small.get("reduced").is_none());
     }
 
@@ -798,7 +913,12 @@ mod tests {
         assert_eq!((missing.code, missing.valid[0].as_str()), ("FILE_NOT_FOUND", "smooth"));
         assert!(missing.valid_total.unwrap() > 10 && missing.valid.len() == 10);
         assert_eq!(run("../../../Cargo").unwrap_err().code, "PATH_OUTSIDE_ROOTS");
-        let step = run_diagnose(&fixtures(), CcxDiagnoseIn { job_path: Some("smooth".into()), job_id: None, step: Some(9), last_increments: None }, None).unwrap_err();
+        let step = run_diagnose(
+            &fixtures(),
+            CcxDiagnoseIn { job_path: Some("smooth".into()), job_id: None, step: Some(9), last_increments: None },
+            None,
+        )
+        .unwrap_err();
         assert_eq!((step.code, step.valid.as_slice()), ("UNKNOWN_STEP", &["1".to_string()][..]));
     }
 }

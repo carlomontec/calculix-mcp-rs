@@ -3,11 +3,8 @@
 
 //! Unified hybrid FRD parser supporting both ASCII and Binary (single/double precision) CalculiX result files.
 
-use crate::{
-    ComponentData, Dataset, Element, ElementType, FieldType, FrdError, FrdModel, Node, Result,
-    StepInfo,
-};
 use super::reader::ByteCursor;
+use crate::{ComponentData, Dataset, Element, ElementType, FieldType, FrdError, FrdModel, Node, Result, StepInfo};
 use std::collections::{HashMap, HashSet};
 
 /// Helper to check if a byte slice is empty or only whitespace
@@ -58,10 +55,7 @@ pub(super) fn default_component_names(field: &str, ncomps: usize) -> Vec<String>
             vec!["D1".into(), "D2".into(), "D3".into()]
         }
     } else if upper == "STRESS" {
-        vec![
-            "SXX".into(), "SYY".into(), "SZZ".into(),
-            "SXY".into(), "SYZ".into(), "SZX".into(),
-        ]
+        vec!["SXX".into(), "SYY".into(), "SZZ".into(), "SXY".into(), "SYZ".into(), "SZX".into()]
     } else {
         (1..=ncomps.max(1)).map(|i| format!("C{}", i)).collect()
     }
@@ -74,9 +68,7 @@ pub struct FrdParserEngine<'a> {
 
 impl<'a> FrdParserEngine<'a> {
     pub fn from_bytes(data: &'a [u8]) -> Self {
-        Self {
-            cursor: ByteCursor::new(data),
-        }
+        Self { cursor: ByteCursor::new(data) }
     }
 
     /// Parse the entire FRD file into a complete `FrdModel`
@@ -91,13 +83,17 @@ impl<'a> FrdParserEngine<'a> {
             if line.starts_with(b"    1C") || line.starts_with(b" 1C") || line.starts_with(b"1C") {
                 let name = slice_safe(line, 6, 12);
                 model.title = std::str::from_utf8(name).unwrap_or("").trim().to_string();
-            } else if line.contains(&b'2') && (line.starts_with(b"    2C") || line.starts_with(b" 2C") || line.starts_with(b"2C")) {
+            } else if line.contains(&b'2')
+                && (line.starts_with(b"    2C") || line.starts_with(b" 2C") || line.starts_with(b"2C"))
+            {
                 let nodes = self.parse_nodes_block(line)?;
                 for (idx, node) in nodes.iter().enumerate() {
                     model.node_index.insert(node.id, idx);
                 }
                 model.nodes = nodes;
-            } else if line.contains(&b'3') && (line.starts_with(b"    3C") || line.starts_with(b" 3C") || line.starts_with(b"3C")) {
+            } else if line.contains(&b'3')
+                && (line.starts_with(b"    3C") || line.starts_with(b" 3C") || line.starts_with(b"3C"))
+            {
                 let elements = self.parse_elements_block(line)?;
                 model.elements = elements;
             } else if line.starts_with(b"  100C") || line.starts_with(b" 100C") || line.starts_with(b"100C") {
@@ -127,11 +123,8 @@ impl<'a> FrdParserEngine<'a> {
     /// Parse Node definitions (`2C` ... )
     pub(super) fn parse_nodes_block(&mut self, header_line: &[u8]) -> Result<Vec<Node>> {
         let nod_data: usize = parse_int(slice_safe(header_line, 24, 36)).unwrap_or(0);
-        let format_flag: usize = if header_line.len() > 73 {
-            parse_int(slice_safe(header_line, 73, 75)).unwrap_or(0)
-        } else {
-            0
-        };
+        let format_flag: usize =
+            if header_line.len() > 73 { parse_int(slice_safe(header_line, 73, 75)).unwrap_or(0) } else { 0 };
 
         let mut nodes = Vec::with_capacity(if nod_data > 0 { nod_data } else { 1024 });
 
@@ -172,7 +165,7 @@ impl<'a> FrdParserEngine<'a> {
                     FrdError::InvalidFormat(format!("Unexpected EOF reading {} binary float nodes", nod_data))
                 })?;
 
-                for chunk in raw.chunks_exact(16) {
+                for chunk in raw.as_chunks::<16>().0 {
                     let id = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
                     let x = f32::from_le_bytes(chunk[4..8].try_into().unwrap());
                     let y = f32::from_le_bytes(chunk[8..12].try_into().unwrap());
@@ -187,7 +180,7 @@ impl<'a> FrdParserEngine<'a> {
                     FrdError::InvalidFormat(format!("Unexpected EOF reading {} binary double nodes", nod_data))
                 })?;
 
-                for chunk in raw.chunks_exact(28) {
+                for chunk in raw.as_chunks::<28>().0 {
                     let id = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
                     let x = f64::from_le_bytes(chunk[4..12].try_into().unwrap()) as f32;
                     let y = f64::from_le_bytes(chunk[12..20].try_into().unwrap()) as f32;
@@ -206,11 +199,8 @@ impl<'a> FrdParserEngine<'a> {
     /// Parse Element definitions (`3C` ... )
     pub(super) fn parse_elements_block(&mut self, header_line: &[u8]) -> Result<Vec<Element>> {
         let elem_data: usize = parse_int(slice_safe(header_line, 24, 36)).unwrap_or(0);
-        let format_flag: usize = if header_line.len() > 73 {
-            parse_int(slice_safe(header_line, 73, 75)).unwrap_or(0)
-        } else {
-            0
-        };
+        let format_flag: usize =
+            if header_line.len() > 73 { parse_int(slice_safe(header_line, 73, 75)).unwrap_or(0) } else { 0 };
 
         let mut elements = Vec::with_capacity(if elem_data > 0 { elem_data } else { 1024 });
 
@@ -282,12 +272,7 @@ impl<'a> FrdParserEngine<'a> {
                                 }
                             }
 
-                            elements.push(Element {
-                                id: elem_id,
-                                elem_type,
-                                material_id: mat,
-                                nodes: node_ids,
-                            });
+                            elements.push(Element { id: elem_id, elem_type, material_id: mat, nodes: node_ids });
                             pending_elem = None;
                         }
                     }
@@ -313,16 +298,11 @@ impl<'a> FrdParserEngine<'a> {
                     })?;
 
                     let mut node_ids = Vec::with_capacity(n_nodes);
-                    for chunk in nod_bytes.chunks_exact(4) {
-                        node_ids.push(u32::from_le_bytes(chunk.try_into().unwrap()));
+                    for chunk in nod_bytes.as_chunks::<4>().0 {
+                        node_ids.push(u32::from_le_bytes(*chunk));
                     }
 
-                    elements.push(Element {
-                        id: elem_id,
-                        elem_type,
-                        material_id: mat,
-                        nodes: node_ids,
-                    });
+                    elements.push(Element { id: elem_id, elem_type, material_id: mat, nodes: node_ids });
                 }
             }
             _ => {
@@ -338,11 +318,8 @@ impl<'a> FrdParserEngine<'a> {
         let value = parse_float(slice_safe(header_line, 12, 24)).unwrap_or(0.0);
         let nod_data: usize = parse_int(slice_safe(header_line, 24, 36)).unwrap_or(0);
         let step_number = parse_int(slice_safe(header_line, 58, 63)).unwrap_or(1);
-        let format_flag: usize = if header_line.len() > 73 {
-            parse_int(slice_safe(header_line, 73, 75)).unwrap_or(0)
-        } else {
-            0
-        };
+        let format_flag: usize =
+            if header_line.len() > 73 { parse_int(slice_safe(header_line, 73, 75)).unwrap_or(0) } else { 0 };
 
         let mut field_name = String::new();
         let mut components_meta: Vec<(String, i32)> = Vec::new(); // (comp_name, iexist)
@@ -369,12 +346,23 @@ impl<'a> FrdParserEngine<'a> {
                 // We'll process it and subsequent ASCII lines.
                 if components_meta.is_empty() {
                     let def_names = default_component_names(&field_name, ncomps);
-                    components_meta = def_names.into_iter().map(|n| {
-                        let iexist = if n.eq_ignore_ascii_case("ALL") { 1 } else { 0 };
-                        (n, iexist)
-                    }).collect();
+                    components_meta = def_names
+                        .into_iter()
+                        .map(|n| {
+                            let iexist = if n.eq_ignore_ascii_case("ALL") { 1 } else { 0 };
+                            (n, iexist)
+                        })
+                        .collect();
                 }
-                return self.parse_ascii_dataset_payload(header_line, field_name, components_meta, line, step_number, value, format_flag);
+                return self.parse_ascii_dataset_payload(
+                    header_line,
+                    field_name,
+                    components_meta,
+                    line,
+                    step_number,
+                    value,
+                    format_flag,
+                );
             } else {
                 // In binary format, data begins directly after the last -5 record without a leading -1 text marker!
                 // Rewind cursor back by length of line + 1 (newline)
@@ -386,10 +374,13 @@ impl<'a> FrdParserEngine<'a> {
 
         if components_meta.is_empty() {
             let def_names = default_component_names(&field_name, ncomps);
-            components_meta = def_names.into_iter().map(|n| {
-                let iexist = if n.eq_ignore_ascii_case("ALL") { 1 } else { 0 };
-                (n, iexist)
-            }).collect();
+            components_meta = def_names
+                .into_iter()
+                .map(|n| {
+                    let iexist = if n.eq_ignore_ascii_case("ALL") { 1 } else { 0 };
+                    (n, iexist)
+                })
+                .collect();
         }
 
         // Process binary dataset payload
@@ -481,13 +472,7 @@ impl<'a> FrdParserEngine<'a> {
             _ => FieldType::Other,
         };
 
-        Ok(Dataset {
-            name: field_name,
-            field_type,
-            step_number,
-            value,
-            components,
-        })
+        Ok(Dataset { name: field_name, field_type, step_number, value, components })
     }
 
     /// Process Binary dataset payload
@@ -584,13 +569,7 @@ impl<'a> FrdParserEngine<'a> {
             _ => FieldType::Other,
         };
 
-        Ok(Dataset {
-            name: field_name,
-            field_type,
-            step_number,
-            value,
-            components,
-        })
+        Ok(Dataset { name: field_name, field_type, step_number, value, components })
     }
 
     /// Derive vector magnitude for components like ALL if missing from payload
@@ -616,10 +595,7 @@ impl<'a> FrdParserEngine<'a> {
 
         if let Some(target_idx) = all_idx {
             if components[target_idx].values.is_empty() {
-                let all_nodes: HashSet<u32> = components
-                    .iter()
-                    .flat_map(|c| c.values.keys().copied())
-                    .collect();
+                let all_nodes: HashSet<u32> = components.iter().flat_map(|c| c.values.keys().copied()).collect();
 
                 let mut min_val = f32::MAX;
                 let mut min_node = 0;

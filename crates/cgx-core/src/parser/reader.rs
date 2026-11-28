@@ -33,7 +33,7 @@ impl<'a> ByteCursor<'a> {
         if let Some(idx) = slice.iter().position(|&b| b == b'\n') {
             let line = &slice[..idx];
             self.pos += idx + 1; // Advance past '\n'
-            
+
             // Strip trailing \r if present
             if line.ends_with(b"\r") {
                 Some(&line[..line.len() - 1])

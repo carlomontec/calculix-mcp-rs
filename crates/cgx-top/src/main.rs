@@ -6,16 +6,16 @@ mod sparkline;
 mod tui;
 
 use ascii_plot::render_ascii_plot;
+use cgx_core::{
+    consolidate_inp, diagnose, inspect_inp, parse_cvg, parse_frd_file, parse_sta, DiagCtx, FrdModel, InpSummary,
+    StepInfo, Thresholds,
+};
 use clap::{Parser, Subcommand};
 use sparkline::render_sparkline;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
-use cgx_core::{
-    consolidate_inp, diagnose, inspect_inp, parse_cvg, parse_frd_file, parse_sta, DiagCtx,
-    FrdModel, InpSummary, StepInfo, Thresholds,
-};
 
 /// The terminal companion to CalculiX GraphiX (CGX).
 /// Fast, zero-dependency TUI and CLI for inspecting FEA results (.frd) and input decks (.inp).
@@ -126,7 +126,7 @@ fn execute_diagnose(job: &Path) -> anyhow::Result<()> {
     let is_job_ext = job
         .extension()
         .and_then(|e| e.to_str())
-        .map_or(false, |e| ["inp", "sta", "cvg"].iter().any(|x| e.eq_ignore_ascii_case(x)));
+        .is_some_and(|e| ["inp", "sta", "cvg"].iter().any(|x| e.eq_ignore_ascii_case(x)));
     let base = if is_job_ext { job.with_extension("") } else { job.to_path_buf() };
     let read = |ext: &str| fs::read_to_string(format!("{}.{}", base.display(), ext)).unwrap_or_default();
     let sta = parse_sta(&read("sta"));
@@ -160,9 +160,15 @@ fn execute_diagnose(job: &Path) -> anyhow::Result<()> {
         println!("\nsolver: {m}");
     }
     println!("\nLast {} .sta rows:", sta.len().min(10));
-    println!("  {:>5} {:>5} {:>4} {:>5} {:>13} {:>13} {:>13}", "STEP", "INC", "ATT", "ITRS", "TOT TIME", "STEP TIME", "INC TIME");
+    println!(
+        "  {:>5} {:>5} {:>4} {:>5} {:>13} {:>13} {:>13}",
+        "STEP", "INC", "ATT", "ITRS", "TOT TIME", "STEP TIME", "INC TIME"
+    );
     for r in &sta[sta.len().saturating_sub(10)..] {
-        println!("  {:>5} {:>5} {:>4} {:>5} {:>13.6e} {:>13.6e} {:>13.6e}", r.step, r.inc, r.att, r.itrs, r.tot_time, r.step_time, r.inc_time);
+        println!(
+            "  {:>5} {:>5} {:>4} {:>5} {:>13.6e} {:>13.6e} {:>13.6e}",
+            r.step, r.inc, r.att, r.itrs, r.tot_time, r.step_time, r.inc_time
+        );
     }
     Ok(())
 }
@@ -206,7 +212,7 @@ const BOX_INNER_WIDTH: usize = 73;
 fn print_box_top(title: &str) {
     let prefix = format!("┌─ {} ", title);
     let p_len = prefix.chars().count();
-    if p_len >= BOX_INNER_WIDTH + 1 {
+    if p_len > BOX_INNER_WIDTH {
         let truncated: String = prefix.chars().take(BOX_INNER_WIDTH).collect();
         println!("{}─┐", truncated);
     } else {
@@ -244,7 +250,10 @@ fn execute_inp_check(inp_path: &Path) -> anyhow::Result<()> {
     let summary: InpSummary = inspect_inp(inp_path)?;
 
     println!();
-    print_box_top(&format!("CalculiX Input Deck Inspection: {}", inp_path.file_name().and_then(|s| s.to_str()).unwrap_or("")));
+    print_box_top(&format!(
+        "CalculiX Input Deck Inspection: {}",
+        inp_path.file_name().and_then(|s| s.to_str()).unwrap_or("")
+    ));
     print_box_row(&format!("Path: {}", inp_path.display()));
     print_box_row(&format!(
         "Total Lines: {:<10} │ Total Files: {:<10} │ Steps: {:<12}",
@@ -265,10 +274,18 @@ fn execute_inp_check(inp_path: &Path) -> anyhow::Result<()> {
 
     print_box_divider();
     let mut features = Vec::new();
-    if summary.has_nodes { features.push("Nodes"); }
-    if summary.has_elements { features.push("Elements"); }
-    if summary.boundary_count > 0 { features.push("Boundary Conditions"); }
-    if !summary.materials.is_empty() { features.push("Materials"); }
+    if summary.has_nodes {
+        features.push("Nodes");
+    }
+    if summary.has_elements {
+        features.push("Elements");
+    }
+    if summary.boundary_count > 0 {
+        features.push("Boundary Conditions");
+    }
+    if !summary.materials.is_empty() {
+        features.push("Materials");
+    }
     print_box_row(&format!("Features: {}", features.join(", ")));
 
     if !summary.node_sets.is_empty() {
@@ -302,11 +319,7 @@ fn execute_inp_check(inp_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn select_representative_indices(
-    total: usize,
-    target_count: usize,
-    peak_idx: Option<usize>,
-) -> Vec<usize> {
+fn select_representative_indices(total: usize, target_count: usize, peak_idx: Option<usize>) -> Vec<usize> {
     if total <= target_count {
         return (0..total).collect();
     }
@@ -341,13 +354,14 @@ fn print_summary(path: &Path, model: &FrdModel, show_all_steps: bool, sample_cou
     print_box_row(&format!("Title: {}", if model.title.is_empty() { "(none)" } else { &model.title }));
     print_box_row(&format!(
         "Size: {:<10.2} KB │ Nodes: {:<12} │ Elements: {:<12}",
-        file_size_kb, model.nodes.len(), model.elements.len()
+        file_size_kb,
+        model.nodes.len(),
+        model.elements.len()
     ));
 
     if let (Some(first), Some(last)) = (model.steps.first(), model.steps.last()) {
-        let field_names: HashSet<String> = model.steps.iter()
-            .flat_map(|s| s.datasets.iter().map(|d| d.name.clone()))
-            .collect();
+        let field_names: HashSet<String> =
+            model.steps.iter().flat_map(|s| s.datasets.iter().map(|d| d.name.clone())).collect();
         let mut sorted_fields: Vec<_> = field_names.into_iter().collect();
         sorted_fields.sort();
         let fields_display = if sorted_fields.is_empty() { "none".to_string() } else { sorted_fields.join(", ") };
@@ -355,13 +369,12 @@ fn print_summary(path: &Path, model: &FrdModel, show_all_steps: bool, sample_cou
         if model.steps.len() > 1 {
             print_box_row(&format!(
                 "Steps: {:<9} │ Range: {:.4e} -> {:.4e}",
-                model.steps.len(), first.value, last.value
+                model.steps.len(),
+                first.value,
+                last.value
             ));
         } else {
-            print_box_row(&format!(
-                "Steps: 1         │ Value: {:.4e}",
-                first.value
-            ));
+            print_box_row(&format!("Steps: 1         │ Value: {:.4e}", first.value));
         }
         print_box_row(&format!("Fields: {}", fields_display));
     }
@@ -374,7 +387,7 @@ fn print_summary(path: &Path, model: &FrdModel, show_all_steps: bool, sample_cou
     }
     print!("Elements by type: ");
     let mut counts_vec: Vec<_> = elem_counts.into_iter().collect();
-    counts_vec.sort_by(|a, b| b.1.cmp(&a.1));
+    counts_vec.sort_by_key(|c| std::cmp::Reverse(c.1));
     for (name, count) in counts_vec {
         print!("{}: {}  ", name, count);
     }
@@ -388,7 +401,9 @@ fn print_summary(path: &Path, model: &FrdModel, show_all_steps: bool, sample_cou
         let display_limit = 20;
         for chunk in set_names.chunks(4) {
             println!("  {}", chunk.join("    "));
-            if chunk.len() > display_limit { break; }
+            if chunk.len() > display_limit {
+                break;
+            }
         }
     }
 
@@ -396,9 +411,8 @@ fn print_summary(path: &Path, model: &FrdModel, show_all_steps: bool, sample_cou
     if !model.steps.is_empty() {
         let format_step_row = |s: &StepInfo| {
             let field_names: Vec<String> = s.datasets.iter().map(|d| d.name.clone()).collect();
-            let all_comps: Vec<String> = s.datasets.iter()
-                .flat_map(|d| d.components.iter().map(|c| c.name.clone()))
-                .collect();
+            let all_comps: Vec<String> =
+                s.datasets.iter().flat_map(|d| d.components.iter().map(|c| c.name.clone())).collect();
             format!(
                 "  {:<6} {:<6} {:<16.6e} {:<12} {:<30}",
                 s.step_number,
@@ -453,9 +467,8 @@ fn report_stress_history(
 ) {
     let history = model.compute_stress_history(filter_nodes);
     if history.is_empty() {
-        let available_fields: HashSet<String> = model.steps.iter()
-            .flat_map(|s| s.datasets.iter().map(|d| d.name.clone()))
-            .collect();
+        let available_fields: HashSet<String> =
+            model.steps.iter().flat_map(|s| s.datasets.iter().map(|d| d.name.clone())).collect();
         let fields_str = if available_fields.is_empty() {
             "none".to_string()
         } else {
@@ -473,10 +486,15 @@ fn report_stress_history(
             for s in &history {
                 println!(
                     "{},{},{:.6e},{:.6e},{},{:.6e},{},{:.6e},{},{}",
-                    s.step_number, s.increment_number, s.value,
-                    s.max_principal_s1.0, s.max_principal_s1.1,
-                    s.min_principal_s3.0, s.min_principal_s3.1,
-                    s.max_von_mises.0, s.max_von_mises.1,
+                    s.step_number,
+                    s.increment_number,
+                    s.value,
+                    s.max_principal_s1.0,
+                    s.max_principal_s1.1,
+                    s.min_principal_s3.0,
+                    s.min_principal_s3.1,
+                    s.max_von_mises.0,
+                    s.max_von_mises.1,
                     s.node_count
                 );
             }
@@ -485,9 +503,13 @@ fn report_stress_history(
             for s in &history {
                 println!(
                     "{},{},{:.6e},{:.6e},{},{:.6e},{},{:.6e},{}",
-                    s.step_number, s.increment_number, s.value,
-                    s.max_von_mises.0, s.max_von_mises.1,
-                    s.min_von_mises.0, s.min_von_mises.1,
+                    s.step_number,
+                    s.increment_number,
+                    s.value,
+                    s.max_von_mises.0,
+                    s.max_von_mises.1,
+                    s.min_von_mises.0,
+                    s.min_von_mises.1,
                     s.max_tresca.0,
                     s.node_count
                 );
@@ -528,11 +550,7 @@ fn report_stress_history(
     let is_decimated = !show_all && (history.len() > target_samples || sample_count.is_some());
 
     println!();
-    print_box_top(if principal {
-        "Principal Stresses Extrema History"
-    } else {
-        "von Mises Stress Extrema History"
-    });
+    print_box_top(if principal { "Principal Stresses Extrema History" } else { "von Mises Stress Extrema History" });
     print_box_row(&format!("Filter: {}", filter_str));
     print_box_row(&format!(
         "Peak {}: {:.4e} (Step {}, Incr {}, Node {}, Val: {:.4e})",
@@ -561,9 +579,14 @@ fn report_stress_history(
             let marker = if idx == peak_idx && is_decimated { "*" } else { " " };
             println!(
                 "│ {:<4} │ {:<4} │ {:<12.4e} │ {:<15.6e}{} │ {:<6} │ {:<16.6e} │ {:<6} │",
-                s.step_number, s.increment_number, s.value,
-                s.max_principal_s1.0, marker, s.max_principal_s1.1,
-                s.min_principal_s3.0, s.min_principal_s3.1
+                s.step_number,
+                s.increment_number,
+                s.value,
+                s.max_principal_s1.0,
+                marker,
+                s.max_principal_s1.1,
+                s.min_principal_s3.0,
+                s.min_principal_s3.1
             );
         }
     } else {
@@ -580,8 +603,13 @@ fn report_stress_history(
             let marker = if idx == peak_idx && is_decimated { "*" } else { " " };
             println!(
                 "│ {:<4} │ {:<4} │ {:<12.4e} │ {:<15.6e}{} │ {:<6} │ {:<14.6e} │",
-                s.step_number, s.increment_number, s.value,
-                s.max_von_mises.0, marker, s.max_von_mises.1, s.max_tresca.0
+                s.step_number,
+                s.increment_number,
+                s.value,
+                s.max_von_mises.0,
+                marker,
+                s.max_von_mises.1,
+                s.max_tresca.0
             );
         }
     }
@@ -624,9 +652,8 @@ fn report_disp_history(
 ) {
     let history = model.compute_disp_history(filter_nodes);
     if history.is_empty() {
-        let available_fields: HashSet<String> = model.steps.iter()
-            .flat_map(|s| s.datasets.iter().map(|d| d.name.clone()))
-            .collect();
+        let available_fields: HashSet<String> =
+            model.steps.iter().flat_map(|s| s.datasets.iter().map(|d| d.name.clone())).collect();
         let fields_str = if available_fields.is_empty() {
             "none".to_string()
         } else {
@@ -643,9 +670,13 @@ fn report_disp_history(
         for s in &history {
             println!(
                 "{},{},{:.6e},{:.6e},{},{:.6e},{},{}",
-                s.step_number, s.increment_number, s.value,
-                s.max_disp.0, s.max_disp.1,
-                s.min_disp.0, s.min_disp.1,
+                s.step_number,
+                s.increment_number,
+                s.value,
+                s.max_disp.0,
+                s.max_disp.1,
+                s.min_disp.0,
+                s.min_disp.1,
                 s.node_count
             );
         }
@@ -681,7 +712,8 @@ fn report_disp_history(
         let chosen_count = select_representative_indices(history.len(), target_samples, Some(peak_idx)).len();
         print_box_row(&format!(
             "Timeline: {} steps (showing {} representative steps, * = peak, use -a/--all to view all)",
-            history.len(), chosen_count
+            history.len(),
+            chosen_count
         ));
     }
     println!("├──────┬──────┬──────────────┬──────────────────┬────────┬────────────────┤");
@@ -699,8 +731,7 @@ fn report_disp_history(
         let marker = if idx == peak_idx && is_decimated { "*" } else { " " };
         println!(
             "│ {:<4} │ {:<4} │ {:<12.4e} │ {:<15.6e}{} │ {:<6} │ {:<14.6e} │",
-            s.step_number, s.increment_number, s.value,
-            s.max_disp.0, marker, s.max_disp.1, s.min_disp.0
+            s.step_number, s.increment_number, s.value, s.max_disp.0, marker, s.max_disp.1, s.min_disp.0
         );
     }
     println!("├──────┴──────┴──────────────┴──────────────────┴────────┴────────────────┤");
@@ -752,7 +783,8 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let is_inp = primary_file.extension().and_then(|s| s.to_str()).map(|ext| ext.eq_ignore_ascii_case("inp")).unwrap_or(false);
+    let is_inp =
+        primary_file.extension().and_then(|s| s.to_str()).map(|ext| ext.eq_ignore_ascii_case("inp")).unwrap_or(false);
 
     // 2. Handle consolidation flag on primary file
     if args.consolidate {

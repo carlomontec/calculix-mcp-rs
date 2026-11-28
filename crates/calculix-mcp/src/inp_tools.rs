@@ -7,10 +7,10 @@ use crate::error::ToolError;
 use crate::frd_tools::{Page, Table};
 use crate::paths::Roots;
 use cgx_core::{consolidate_inp, inspect_inp, read_card_data, scan_cards, InpCard, InpScan, ScanLimits};
-use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct InpInspectIn {
@@ -129,13 +129,25 @@ pub fn inspect(roots: &Roots, p: InpInspectIn) -> Result<InpInspectOut, ToolErro
             .steps()
             .into_iter()
             .take(cap)
-            .map(|st| StepOut { n: st.number, at: at(roots, &st.file, st.line), params: st.params, procedure: st.procedure, cards: st.cards })
+            .map(|st| StepOut {
+                n: st.number,
+                at: at(roots, &st.file, st.line),
+                params: st.params,
+                procedure: st.procedure,
+                cards: st.cards,
+            })
             .collect(),
         external_refs: cards
             .external_refs()
             .into_iter()
             .take(cap)
-            .map(|r| ExternalRefOut { at: at(roots, &r.file, r.line), card: r.card, param: r.param, target: r.target, exists: r.exists })
+            .map(|r| ExternalRefOut {
+                at: at(roots, &r.file, r.line),
+                card: r.card,
+                param: r.param,
+                target: r.target,
+                exists: r.exists,
+            })
             .collect(),
         root_file: roots.display(&s.root_file),
         lines: s.total_lines,
@@ -176,10 +188,8 @@ pub struct InpConsolidateOut {
 
 pub fn consolidate(roots: &Roots, p: InpConsolidateIn) -> Result<InpConsolidateOut, ToolError> {
     let path = roots.existing(&p.path, &["inp"])?;
-    let default_out = path.with_file_name(format!(
-        "{}_consolidated.inp",
-        path.file_stem().and_then(|s| s.to_str()).unwrap_or("deck")
-    ));
+    let default_out = path
+        .with_file_name(format!("{}_consolidated.inp", path.file_stem().and_then(|s| s.to_str()).unwrap_or("deck")));
     let out = match &p.output_path {
         Some(raw) => roots.creatable(raw, &["inp"])?,
         None => roots.creatable(&default_out.to_string_lossy(), &["inp"])?,
@@ -292,7 +302,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("calculix-mcp-inp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("mesh.inc"), "*NODE, NSET=Nall\n1,0.,0.,0.\n2,1.,0.,0.\n*ELEMENT, TYPE=B31, ELSET=Eall\n1,1,2\n").unwrap();
+        std::fs::write(
+            dir.join("mesh.inc"),
+            "*NODE, NSET=Nall\n1,0.,0.,0.\n2,1.,0.,0.\n*ELEMENT, TYPE=B31, ELSET=Eall\n1,1,2\n",
+        )
+        .unwrap();
         std::fs::write(
             dir.join("deck.inp"),
             "*INCLUDE, INPUT=mesh.inc\n*INCLUDE, INPUT=gone.inc\n*BOUNDARY\n1,1,6\n** comment\n*MATERIAL, NAME=STEEL\n*ELASTIC\n210000.,0.3\n\
@@ -309,7 +323,14 @@ mod tests {
         assert_eq!((out.step_plan.len(), out.step_plan[0].procedure.as_deref()), (1, Some("STATIC")));
         assert_eq!(out.step_plan[0].at, "deck.inp:9");
 
-        let query = |keyword: &str, step, data_lines| InpCardsIn { path: "deck.inp".into(), keyword: keyword.into(), step, data_lines, offset: 0, limit: None };
+        let query = |keyword: &str, step, data_lines| InpCardsIn {
+            path: "deck.inp".into(),
+            keyword: keyword.into(),
+            step,
+            data_lines,
+            offset: 0,
+            limit: None,
+        };
         let c = cards(&roots, query("*cload", None, Some(2))).unwrap();
         assert_eq!((c.cards.len(), c.cards[0].step, c.cards[0].data_total), (1, 1, 3));
         assert_eq!(c.cards[0].data, ["2,2,-1.", "2,3,-2."]);

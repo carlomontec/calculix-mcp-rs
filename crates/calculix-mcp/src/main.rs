@@ -63,10 +63,17 @@ fn parse_solvers(specs: &[String]) -> anyhow::Result<Vec<jobs::Solver>> {
     specs
         .iter()
         .map(|spec| {
-            let (name, path) = spec.split_once('=').ok_or_else(|| anyhow::anyhow!("--ccx expects NAME=PATH, got '{}'", spec))?;
-            let binary = PathBuf::from(path).canonicalize().map_err(|e| anyhow::anyhow!("solver '{}': {}: {}", name, path, e))?;
+            let (name, path) =
+                spec.split_once('=').ok_or_else(|| anyhow::anyhow!("--ccx expects NAME=PATH, got '{}'", spec))?;
+            let binary = PathBuf::from(path)
+                .canonicalize()
+                .map_err(|e| anyhow::anyhow!("solver '{}': {}: {}", name, path, e))?;
             anyhow::ensure!(binary.is_file(), "solver '{}': {} is not a file", name, binary.display());
-            anyhow::ensure!(!name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'), "bad solver name '{}'", name);
+            anyhow::ensure!(
+                !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'),
+                "bad solver name '{}'",
+                name
+            );
             let json = advertises_json(&binary);
             Ok(jobs::Solver { name: name.to_string(), path: binary, json })
         })
@@ -93,7 +100,8 @@ fn solver_line(s: &jobs::Solver) -> String {
 async fn stop_signal() {
     #[cfg(unix)]
     {
-        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("SIGTERM handler");
+        let mut term =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("SIGTERM handler");
         tokio::select! {
             _ = tokio::signal::ctrl_c() => {}
             _ = term.recv() => {}
@@ -106,7 +114,12 @@ async fn stop_signal() {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let folder = folder::ModelsFolder::new(args.roots.clone(), args.allow.clone(), std::env::current_dir().ok(), paths::home_dir())?;
+    let folder = folder::ModelsFolder::new(
+        args.roots.clone(),
+        args.allow.clone(),
+        std::env::current_dir().ok(),
+        paths::home_dir(),
+    )?;
     eprintln!("calculix-mcp {}: serving on stdio", env!("CARGO_PKG_VERSION"));
     let start = folder.view();
     if start.folders.is_empty() {
