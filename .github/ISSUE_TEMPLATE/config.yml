@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/carlomontec/calculix-mcp-rs/security/advisories/new
+    about: Report security problems privately, not as a public issue.
+  - name: Tool reference
+    url: https://github.com/carlomontec/calculix-mcp-rs/blob/main/docs/TOOLS.md
+    about: What each of the 18 tools does, with examples.

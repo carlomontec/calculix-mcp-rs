@@ -1,0 +1,26 @@
+name: Feature request
+description: A new tool, a new option, or support for more of CalculiX
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: Describe the task in engineering terms, for example "find the peak contact pressure on a surface per step".
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What happens today
+      description: What the server does now, or which tool comes closest.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: If you have one, describe the tool, its arguments and what it should return.
+  - type: textarea
+    id: example
+    attributes:
+      label: Example files
+      description: Keywords, a deck or a result file that shows the case. Remove anything confidential first.

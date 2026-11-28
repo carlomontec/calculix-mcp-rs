@@ -162,6 +162,10 @@ Press `?` in the dashboard for the key bindings.
 - [ ] `cgx-top --watch`: live view of a running solve
 - [ ] Windows process-tree handling for cancelled solves
 
+## Contributing
+
+Bug reports, decks that break a tool, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for building, testing and style, and [SECURITY.md](SECURITY.md) for reporting vulnerabilities privately. Changes are listed in the [changelog](CHANGELOG.md).
+
 ## License
 
 Copyright (C) 2026 Carlo Daniel Monjaraz Tec.
