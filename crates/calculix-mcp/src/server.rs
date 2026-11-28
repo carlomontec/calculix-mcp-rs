@@ -32,10 +32,7 @@ async fn blocking<T: Send + 'static>(
     roots: Arc<Roots>,
     work: impl FnOnce(&Roots) -> Result<T, ToolError> + Send + 'static,
 ) -> Result<Json<T>, ToolError> {
-    tokio::task::spawn_blocking(move || work(&roots))
-        .await
-        .map_err(ToolError::internal)?
-        .map(Json)
+    tokio::task::spawn_blocking(move || work(&roots)).await.map_err(ToolError::internal)?.map(Json)
 }
 
 /// Ask the client for its roots (`file://` URIs). None if it fails or does not answer in time.
@@ -98,7 +95,10 @@ impl CalculixServer {
         description = "Show or change the folder with the user's models (decks, meshes, results) that all other tools work in. Call it when the user names a different project folder, or when a tool reports that no models folder is set. Paths in other tools are relative to this folder.",
         annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn models_folder(&self, Parameters(p): Parameters<folder::ModelsFolderIn>) -> Result<Json<folder::ModelsFolderOut>, ToolError> {
+    async fn models_folder(
+        &self,
+        Parameters(p): Parameters<folder::ModelsFolderIn>,
+    ) -> Result<Json<folder::ModelsFolderOut>, ToolError> {
         // Let the client's first roots answer land before reporting or overriding it.
         let _ = self.folder.current_settled().await;
         if let Some(path) = p.path.as_deref() {
@@ -117,9 +117,17 @@ impl CalculixServer {
     #[tool(
         name = "cgx_run_batch",
         description = "Run a CalculiX GraphiX (.fbd) script headlessly to build geometry and meshes, in a private run directory. Returns the files produced and a summary of each mesh. Call cgx_help first for command syntax. The script is screened for shell and path-escaping commands; this is a mitigation, not a sandbox.",
-        annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn cgx_run_batch(&self, Parameters(p): Parameters<cgx_tools::CgxRunIn>) -> Result<Json<cgx_tools::CgxRunOut>, ToolError> {
+    async fn cgx_run_batch(
+        &self,
+        Parameters(p): Parameters<cgx_tools::CgxRunIn>,
+    ) -> Result<Json<cgx_tools::CgxRunOut>, ToolError> {
         cgx_tools::run_batch(self.roots().await?, self.cgx.clone(), p).await.map(Json)
     }
 
@@ -128,16 +136,27 @@ impl CalculixServer {
         description = "CalculiX GraphiX command reference with verified examples for geometry, meshing, sets and export.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn cgx_help(&self, Parameters(p): Parameters<cgx_tools::CgxHelpIn>) -> Result<Json<cgx_tools::CgxHelpOut>, ToolError> {
+    async fn cgx_help(
+        &self,
+        Parameters(p): Parameters<cgx_tools::CgxHelpIn>,
+    ) -> Result<Json<cgx_tools::CgxHelpOut>, ToolError> {
         Ok(Json(cgx_tools::help(p)))
     }
 
     #[tool(
         name = "ccx_solve",
         description = "Start a CalculiX solve in the background on a private copy of the deck (the original directory is never written to). Returns a job_id immediately; follow with ccx_job_status.",
-        annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn ccx_solve(&self, Parameters(p): Parameters<ccx_tools::CcxSolveIn>) -> Result<Json<ccx_tools::CcxSolveOut>, ToolError> {
+    async fn ccx_solve(
+        &self,
+        Parameters(p): Parameters<ccx_tools::CcxSolveIn>,
+    ) -> Result<Json<ccx_tools::CcxSolveOut>, ToolError> {
         let roots = self.roots().await?;
         let (r, jobs) = (roots.clone(), self.jobs.clone());
         let (prepared, copied, flags) = tokio::task::spawn_blocking(move || ccx_tools::prepare_solve(&r, &jobs, p))
@@ -152,7 +171,10 @@ impl CalculixServer {
         description = "State, progress, memory, convergence verdict and result files of a solver job. Set wait_s to block until the state changes instead of polling.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn ccx_job_status(&self, Parameters(p): Parameters<ccx_tools::CcxJobStatusIn>) -> Result<Json<ccx_tools::CcxJobStatusOut>, ToolError> {
+    async fn ccx_job_status(
+        &self,
+        Parameters(p): Parameters<ccx_tools::CcxJobStatusIn>,
+    ) -> Result<Json<ccx_tools::CcxJobStatusOut>, ToolError> {
         let roots = self.roots().await?;
         self.jobs.get(&p.job_id)?;
         self.jobs.wait_change(&p.job_id, std::time::Duration::from_secs(p.wait_s.unwrap_or(0).min(50))).await;
@@ -166,7 +188,10 @@ impl CalculixServer {
         description = "Stop a queued or running solver job and remove all of its processes. Safe to call on a finished job. Works even when no models folder is set.",
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn ccx_job_cancel(&self, Parameters(p): Parameters<ccx_tools::CcxJobCancelIn>) -> Result<Json<ccx_tools::CcxJobCancelOut>, ToolError> {
+    async fn ccx_job_cancel(
+        &self,
+        Parameters(p): Parameters<ccx_tools::CcxJobCancelIn>,
+    ) -> Result<Json<ccx_tools::CcxJobCancelOut>, ToolError> {
         let (was, state) = self.jobs.cancel(&p.job_id).await?;
         Ok(Json(ccx_tools::CcxJobCancelOut { job_id: p.job_id, was, state }))
     }
@@ -176,9 +201,15 @@ impl CalculixServer {
         description = "List solver jobs, newest first, with state, jobname, label, elapsed seconds and run directory size. Lists the jobs of the models folder (also finished ones from earlier server runs) and every job started in this session. Filter with state.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn ccx_job_list(&self, Parameters(p): Parameters<ccx_tools::CcxJobListIn>) -> Result<Json<ccx_tools::CcxJobListOut>, ToolError> {
+    async fn ccx_job_list(
+        &self,
+        Parameters(p): Parameters<ccx_tools::CcxJobListIn>,
+    ) -> Result<Json<ccx_tools::CcxJobListOut>, ToolError> {
         let (roots, jobs) = (self.roots().await?, self.jobs.clone());
-        tokio::task::spawn_blocking(move || ccx_tools::job_list(&jobs, roots.first(), p)).await.map(Json).map_err(ToolError::internal)
+        tokio::task::spawn_blocking(move || ccx_tools::job_list(&jobs, roots.first(), p))
+            .await
+            .map(Json)
+            .map_err(ToolError::internal)
     }
 
     #[tool(
@@ -186,7 +217,10 @@ impl CalculixServer {
         description = "Summarise a CalculiX .inp deck across its *INCLUDE tree: flags, keyword census, step plan, includes (missing ones first), sets, materials. Call first on any deck.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn inp_inspect(&self, Parameters(p): Parameters<inp_tools::InpInspectIn>) -> Result<Json<inp_tools::InpInspectOut>, ToolError> {
+    async fn inp_inspect(
+        &self,
+        Parameters(p): Parameters<inp_tools::InpInspectIn>,
+    ) -> Result<Json<inp_tools::InpInspectOut>, ToolError> {
         blocking(self.roots().await?, move |r| inp_tools::inspect(r, p)).await
     }
 
@@ -195,7 +229,10 @@ impl CalculixServer {
         description = "List keyword cards of a CalculiX deck (e.g. CONTACT PAIR, BOUNDARY, STATIC) across its *INCLUDE tree, with file:line and the first data lines. Use to read specific parts of a deck without loading it.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn inp_cards(&self, Parameters(p): Parameters<inp_tools::InpCardsIn>) -> Result<Json<inp_tools::InpCardsOut>, ToolError> {
+    async fn inp_cards(
+        &self,
+        Parameters(p): Parameters<inp_tools::InpCardsIn>,
+    ) -> Result<Json<inp_tools::InpCardsOut>, ToolError> {
         blocking(self.roots().await?, move |r| inp_tools::cards(r, p)).await
     }
 
@@ -204,16 +241,27 @@ impl CalculixServer {
         description = "Flatten a multi-file CalculiX deck into one .inp file on disk. Returns statistics, never deck text.",
         annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn inp_consolidate(&self, Parameters(p): Parameters<inp_tools::InpConsolidateIn>) -> Result<Json<inp_tools::InpConsolidateOut>, ToolError> {
+    async fn inp_consolidate(
+        &self,
+        Parameters(p): Parameters<inp_tools::InpConsolidateIn>,
+    ) -> Result<Json<inp_tools::InpConsolidateOut>, ToolError> {
         blocking(self.roots().await?, move |r| inp_tools::consolidate(r, p)).await
     }
 
     #[tool(
         name = "inp_edit",
         description = "Edit a CalculiX deck by addressing keyword cards (set or remove a parameter, replace data lines, insert or delete a card, append a step). Writes the result to new files and returns a diff and a re-check; the original deck and its includes are never modified. Use dry_run to preview.",
-        annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn inp_edit(&self, Parameters(p): Parameters<edit_tools::InpEditIn>) -> Result<Json<edit_tools::InpEditOut>, ToolError> {
+    async fn inp_edit(
+        &self,
+        Parameters(p): Parameters<edit_tools::InpEditIn>,
+    ) -> Result<Json<edit_tools::InpEditOut>, ToolError> {
         blocking(self.roots().await?, move |r| edit_tools::edit(r, p)).await
     }
 
@@ -222,7 +270,10 @@ impl CalculixServer {
         description = "Check a CalculiX deck's mesh before solving: disconnected parts, free nodes, inverted elements, worst aspect ratios, volume, mass and centre of gravity per material, undefined or empty sets. Call before a long solve.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn mesh_check(&self, Parameters(p): Parameters<mesh_tools::MeshCheckIn>) -> Result<Json<mesh_tools::MeshCheckOut>, ToolError> {
+    async fn mesh_check(
+        &self,
+        Parameters(p): Parameters<mesh_tools::MeshCheckIn>,
+    ) -> Result<Json<mesh_tools::MeshCheckOut>, ToolError> {
         blocking(self.roots().await?, move |r| mesh_tools::check(r, p)).await
     }
 
@@ -231,7 +282,10 @@ impl CalculixServer {
         description = "Select faces of a CalculiX mesh by geometry (direction, plane, box, cylinder, near a point, connected patch from a seed) and optionally save them as a *SURFACE or *NSET include file. Returns count, area and bounding box so the selection can be checked before use. Never edits the deck.",
         annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn mesh_select(&self, Parameters(p): Parameters<mesh_tools::MeshSelectIn>) -> Result<Json<mesh_tools::MeshSelectOut>, ToolError> {
+    async fn mesh_select(
+        &self,
+        Parameters(p): Parameters<mesh_tools::MeshSelectIn>,
+    ) -> Result<Json<mesh_tools::MeshSelectOut>, ToolError> {
         blocking(self.roots().await?, move |r| mesh_tools::select(r, p)).await
     }
 
@@ -240,7 +294,10 @@ impl CalculixServer {
         description = "Find faces of different parts of a CalculiX mesh that face each other within a gap (contact candidates), with gaps, areas and a suggested slave/master side; optionally save both surfaces and a contact-card template. Never edits the deck.",
         annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn mesh_contact_pairs(&self, Parameters(p): Parameters<contact_tools::MeshContactIn>) -> Result<Json<contact_tools::MeshContactOut>, ToolError> {
+    async fn mesh_contact_pairs(
+        &self,
+        Parameters(p): Parameters<contact_tools::MeshContactIn>,
+    ) -> Result<Json<contact_tools::MeshContactOut>, ToolError> {
         blocking(self.roots().await?, move |r| contact_tools::contact_pairs(r, p)).await
     }
 
@@ -249,12 +306,16 @@ impl CalculixServer {
         description = "Explain CalculiX convergence from <job>.sta/.cvg (and <job>.json if present): linear, smooth, slow, contact chattering, cutback loop or divergence, with evidence, the last increments and next steps. Give job_id for a job started by ccx_solve, or job_path for any job directory.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn ccx_diagnose(&self, Parameters(p): Parameters<ccx_tools::CcxDiagnoseIn>) -> Result<Json<ccx_tools::CcxDiagnoseOut>, ToolError> {
+    async fn ccx_diagnose(
+        &self,
+        Parameters(p): Parameters<ccx_tools::CcxDiagnoseIn>,
+    ) -> Result<Json<ccx_tools::CcxDiagnoseOut>, ToolError> {
         let job = match &p.job_id {
             Some(id) => Some(self.jobs.get(id)?),
             None => None,
         };
-        blocking(self.roots().await?, move |r| ccx_tools::run_diagnose(r, p, job.as_ref().map(ccx_tools::JobView::of))).await
+        blocking(self.roots().await?, move |r| ccx_tools::run_diagnose(r, p, job.as_ref().map(ccx_tools::JobView::of)))
+            .await
     }
 
     #[tool(
@@ -262,7 +323,10 @@ impl CalculixServer {
         description = "Steps, frequencies or times, available fields and whole-model peak displacement and von Mises stress (with node ids) of a CalculiX .frd result file. Call before frd_query_set.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn frd_summary(&self, Parameters(p): Parameters<frd_tools::FrdSummaryIn>) -> Result<Json<frd_tools::FrdSummaryOut>, ToolError> {
+    async fn frd_summary(
+        &self,
+        Parameters(p): Parameters<frd_tools::FrdSummaryIn>,
+    ) -> Result<Json<frd_tools::FrdSummaryOut>, ToolError> {
         blocking(self.roots().await?, move |r| frd_tools::summary(r, p)).await
     }
 
@@ -271,7 +335,10 @@ impl CalculixServer {
         description = "List node and element sets usable in frd_query_set, with sizes. Supports a substring filter; pass inp_path to add the deck's sets.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn frd_sets(&self, Parameters(p): Parameters<frd_tools::FrdSetsIn>) -> Result<Json<frd_tools::FrdSetsOut>, ToolError> {
+    async fn frd_sets(
+        &self,
+        Parameters(p): Parameters<frd_tools::FrdSetsIn>,
+    ) -> Result<Json<frd_tools::FrdSetsOut>, ToolError> {
         blocking(self.roots().await?, move |r| frd_tools::sets(r, p)).await
     }
 
@@ -280,7 +347,10 @@ impl CalculixServer {
         description = "Exact stress invariants (von Mises, principal, Tresca, hydrostatic) or displacement extrema on one set, per step, with responsible node ids; top_n lists the most loaded nodes with coordinates. Never estimate these values; call this.",
         annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
-    async fn frd_query_set(&self, Parameters(p): Parameters<frd_tools::FrdQueryIn>) -> Result<Json<frd_tools::FrdQueryOut>, ToolError> {
+    async fn frd_query_set(
+        &self,
+        Parameters(p): Parameters<frd_tools::FrdQueryIn>,
+    ) -> Result<Json<frd_tools::FrdQueryOut>, ToolError> {
         blocking(self.roots().await?, move |r| frd_tools::query_set(r, p)).await
     }
 }
@@ -293,7 +363,11 @@ impl ServerHandler for CalculixServer {
             .with_instructions(INSTRUCTIONS)
     }
 
-    async fn initialize(&self, request: InitializeRequestParams, context: RequestContext<RoleServer>) -> Result<InitializeResult, ErrorData> {
+    async fn initialize(
+        &self,
+        request: InitializeRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<InitializeResult, ErrorData> {
         if request.capabilities.roots.is_some() {
             // Tool calls wait (bounded) until the first roots/list answer is applied.
             self.folder.expect_client_roots();
@@ -348,15 +422,26 @@ mod tests {
         let check = || Parameters(mesh_tools::MeshCheckIn { path: "deck.inp".into() });
         let e = s.mesh_check(check()).await.err().expect("an error");
         assert_eq!((e.code, e.hint.as_deref()), ("NO_MODELS_FOLDER", Some(folder::NO_FOLDER_HINT)));
-        let e = s.ccx_job_list(Parameters(ccx_tools::CcxJobListIn { limit: None, offset: None, state: None })).await.err().expect("an error");
+        let e = s
+            .ccx_job_list(Parameters(ccx_tools::CcxJobListIn { limit: None, offset: None, state: None }))
+            .await
+            .err()
+            .expect("an error");
         assert_eq!(e.code, "NO_MODELS_FOLDER");
-        assert!(s.cgx_help(Parameters(cgx_tools::CgxHelpIn { topic: Some("swep".into()) })).await.is_ok(), "cgx_help needs no folder");
+        assert!(
+            s.cgx_help(Parameters(cgx_tools::CgxHelpIn { topic: Some("swep".into()) })).await.is_ok(),
+            "cgx_help needs no folder"
+        );
 
         let shown = s.models_folder(Parameters(folder::ModelsFolderIn { path: None })).await.unwrap().0;
         assert_eq!((shown.source, shown.folders.len()), (Source::None, 0));
         let chosen = s.models_folder(set(&dir.join("a"))).await.unwrap().0;
         assert_eq!((chosen.source, chosen.folders), (Source::Tool, vec![dir.join("a").display().to_string()]));
-        assert_eq!(s.mesh_check(check()).await.err().expect("an error").code, "FILE_NOT_FOUND", "the folder is now in use");
+        assert_eq!(
+            s.mesh_check(check()).await.err().expect("an error").code,
+            "FILE_NOT_FOUND",
+            "the folder is now in use"
+        );
 
         // Fixed by --root: switching elsewhere is refused.
         let fixed = server(vec![dir.join("a")], &dir, &dir.join("home"), detached_jobs());
@@ -370,19 +455,31 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = sandbox("switch");
         let solver = dir.join("fake_ccx");
-        std::fs::write(&solver, "#!/bin/sh\nsleep 1\necho '{\"meta\":{\"success\":true},\"steps\":[]}' > \"$2.json\"\n").unwrap();
+        std::fs::write(
+            &solver,
+            "#!/bin/sh\nsleep 1\necho '{\"meta\":{\"success\":true},\"steps\":[]}' > \"$2.json\"\n",
+        )
+        .unwrap();
         std::fs::set_permissions(&solver, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::write(dir.join("a/deck.inp"), "*NODE\n1,0.,0.,0.\n*STEP\n*STATIC\n*END STEP\n").unwrap();
         let fake = crate::jobs::Solver { name: "fake".into(), path: solver, json: true };
         let jobs = JobManager::detached(vec![fake], Vec::new(), Duration::from_millis(200));
         let s = server(Vec::new(), &dir.join("a"), &dir.join("home"), jobs);
 
-        let solve = ccx_tools::CcxSolveIn { inp_path: "deck.inp".into(), solver: None, threads: Some(1), timeout_s: Some(30), label: None };
+        let solve = ccx_tools::CcxSolveIn {
+            inp_path: "deck.inp".into(),
+            solver: None,
+            threads: Some(1),
+            timeout_s: Some(30),
+            label: None,
+        };
         let job = s.ccx_solve(Parameters(solve)).await.unwrap().0.job_id;
         assert!(dir.join("a/.calculix-mcp/runs").join(&job).is_dir(), "run directory under the folder active at start");
         s.models_folder(set(&dir.join("b"))).await.unwrap();
 
-        let status = |wait_s| Parameters(ccx_tools::CcxJobStatusIn { job_id: job.clone(), wait_s: Some(wait_s), tail_lines: None });
+        let status = |wait_s| {
+            Parameters(ccx_tools::CcxJobStatusIn { job_id: job.clone(), wait_s: Some(wait_s), tail_lines: None })
+        };
         let mut state = s.ccx_job_status(status(0)).await.unwrap().0.state;
         for _ in 0..20 {
             if state.terminal() {
@@ -391,10 +488,15 @@ mod tests {
             state = s.ccx_job_status(status(5)).await.unwrap().0.state;
         }
         assert_eq!(state, crate::jobs::State::Succeeded);
-        let list = s.ccx_job_list(Parameters(ccx_tools::CcxJobListIn { limit: None, offset: None, state: None })).await.unwrap().0;
+        let list = s
+            .ccx_job_list(Parameters(ccx_tools::CcxJobListIn { limit: None, offset: None, state: None }))
+            .await
+            .unwrap()
+            .0;
         assert_eq!(list.jobs.rows.len(), 1, "jobs of this session are listed in the new folder");
         assert_eq!(list.jobs.rows[0][0], json!(job));
-        let diag = ccx_tools::CcxDiagnoseIn { job_id: Some(job.clone()), job_path: None, step: None, last_increments: None };
+        let diag =
+            ccx_tools::CcxDiagnoseIn { job_id: Some(job.clone()), job_path: None, step: None, last_increments: None };
         if let Err(e) = s.ccx_diagnose(Parameters(diag)).await {
             assert_ne!(e.code, "UNKNOWN_JOB");
         }
@@ -418,7 +520,8 @@ mod tests {
         /// Read until the response to `id`, answering roots/list requests with `roots` on the way.
         async fn until(lines: &mut ClientLines, w: &mut ClientWriter, id: i64, roots: &[String]) -> Value {
             loop {
-                let line = tokio::time::timeout(Duration::from_secs(10), lines.next_line()).await.unwrap().unwrap().unwrap();
+                let line =
+                    tokio::time::timeout(Duration::from_secs(10), lines.next_line()).await.unwrap().unwrap().unwrap();
                 let msg: Value = serde_json::from_str(&line).unwrap();
                 if msg["method"] == "roots/list" {
                     let list: Vec<Value> = roots.iter().map(|u| json!({ "uri": u })).collect();
@@ -447,9 +550,12 @@ mod tests {
             let (a, b) = (vec![uri(&dir.join("a"))], vec![uri(&dir.join("b"))]);
             let shown = |msg: &Value| msg["result"]["structuredContent"].clone();
 
-            write(&mut cw, json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            write(
+                &mut cw,
+                json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
                 "protocolVersion": "2025-06-18", "capabilities": {"roots": {"listChanged": true}},
-                "clientInfo": {"name": "fake", "version": "0"}}}))
+                "clientInfo": {"name": "fake", "version": "0"}}}),
+            )
             .await;
             until(&mut lines, &mut cw, 1, &a).await;
             write(&mut cw, json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).await;
@@ -458,7 +564,12 @@ mod tests {
             let call = json!({"name": "models_folder", "arguments": {}});
             write(&mut cw, json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": call})).await;
             let first = shown(&until(&mut lines, &mut cw, 2, &a).await);
-            assert_eq!((&first["source"], &first["folders"]), (&json!("client_roots"), &json!([dir.join("a").display().to_string()])), "{}", first);
+            assert_eq!(
+                (&first["source"], &first["folders"]),
+                (&json!("client_roots"), &json!([dir.join("a").display().to_string()])),
+                "{}",
+                first
+            );
 
             // The user opens another folder: the client notifies, the server asks again.
             write(&mut cw, json!({"jsonrpc": "2.0", "method": "notifications/roots/list_changed"})).await;
@@ -471,7 +582,12 @@ mod tests {
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
-            assert_eq!((&followed["source"], &followed["folders"]), (&json!("client_roots"), &json!([dir.join("b").display().to_string()])), "{}", followed);
+            assert_eq!(
+                (&followed["source"], &followed["folders"]),
+                (&json!("client_roots"), &json!([dir.join("b").display().to_string()])),
+                "{}",
+                followed
+            );
             drop(cw);
             let _ = tokio::time::timeout(Duration::from_secs(5), running).await;
         }

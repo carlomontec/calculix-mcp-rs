@@ -72,9 +72,15 @@ impl StressTensor {
         let mut s3 = q + 2.0 * p * (phi + 4.0 * pi / 3.0).cos();
 
         // Sort descending: s1 >= s2 >= s3
-        if s1 < s2 { std::mem::swap(&mut s1, &mut s2); }
-        if s2 < s3 { std::mem::swap(&mut s2, &mut s3); }
-        if s1 < s2 { std::mem::swap(&mut s1, &mut s2); }
+        if s1 < s2 {
+            std::mem::swap(&mut s1, &mut s2);
+        }
+        if s2 < s3 {
+            std::mem::swap(&mut s2, &mut s3);
+        }
+        if s1 < s2 {
+            std::mem::swap(&mut s1, &mut s2);
+        }
 
         (s1, s2, s3)
     }
@@ -101,8 +107,8 @@ use std::collections::HashSet;
 pub struct StressExtremaSummary {
     pub step_number: u32,
     pub increment_number: u32,
-    pub value: f32, // Time point or Frequency
-    pub max_von_mises: (f32, u32),       // (value, node_id)
+    pub value: f32,                // Time point or Frequency
+    pub max_von_mises: (f32, u32), // (value, node_id)
     pub min_von_mises: (f32, u32),
     pub max_principal_s1: (f32, u32),
     pub min_principal_s3: (f32, u32),
@@ -191,12 +197,24 @@ pub fn compute_dataset_stress_invariants(
     let mut max_hydro = (-f32::INFINITY, 0);
 
     for (nid, vm, (s1, _, s3), tresca, hydro) in results {
-        if vm > max_vm.0 { max_vm = (vm, nid); }
-        if vm < min_vm.0 { min_vm = (vm, nid); }
-        if s1 > max_s1.0 { max_s1 = (s1, nid); }
-        if s3 < min_s3.0 { min_s3 = (s3, nid); }
-        if tresca > max_tresca.0 { max_tresca = (tresca, nid); }
-        if hydro > max_hydro.0 { max_hydro = (hydro, nid); }
+        if vm > max_vm.0 {
+            max_vm = (vm, nid);
+        }
+        if vm < min_vm.0 {
+            min_vm = (vm, nid);
+        }
+        if s1 > max_s1.0 {
+            max_s1 = (s1, nid);
+        }
+        if s3 < min_s3.0 {
+            min_s3 = (s3, nid);
+        }
+        if tresca > max_tresca.0 {
+            max_tresca = (tresca, nid);
+        }
+        if hydro > max_hydro.0 {
+            max_hydro = (hydro, nid);
+        }
     }
 
     Some(StressExtremaSummary {
@@ -221,26 +239,16 @@ pub fn compute_dataset_disp_invariants(
     let comps = &ds.components;
 
     // Check if ALL magnitude component is explicitly available and populated
-    let all_idx = find_comp_idx(comps, &["ALL", "MAG", "TOTAL"])
-        .filter(|&i| !comps[i].values.is_empty());
+    let all_idx = find_comp_idx(comps, &["ALL", "MAG", "TOTAL"]).filter(|&i| !comps[i].values.is_empty());
     let x_idx = find_comp_idx(comps, &["D1", "X", "DX", "U1"]);
     let y_idx = find_comp_idx(comps, &["D2", "Y", "DY", "U2"]);
     let z_idx = find_comp_idx(comps, &["D3", "Z", "DZ", "U3"]);
 
-    let candidate_nodes: Vec<u32> = if let Some(all_i) = all_idx {
-        if let Some(filter) = filter_nodes {
-            comps[all_i].values.keys().copied().filter(|id| filter.contains(id)).collect()
-        } else {
-            comps[all_i].values.keys().copied().collect()
-        }
-    } else if let Some(xi) = x_idx {
-        if let Some(filter) = filter_nodes {
-            comps[xi].values.keys().copied().filter(|id| filter.contains(id)).collect()
-        } else {
-            comps[xi].values.keys().copied().collect()
-        }
+    let base = all_idx.or(x_idx)?;
+    let candidate_nodes: Vec<u32> = if let Some(filter) = filter_nodes {
+        comps[base].values.keys().copied().filter(|id| filter.contains(id)).collect()
     } else {
-        return None;
+        comps[base].values.keys().copied().collect()
     };
 
     if candidate_nodes.is_empty() {
@@ -249,10 +257,7 @@ pub fn compute_dataset_disp_invariants(
 
     let results: Vec<(u32, f32)> = if let Some(all_i) = all_idx.filter(|&i| !comps[i].values.is_empty()) {
         let vals = &comps[all_i].values;
-        candidate_nodes
-            .par_iter()
-            .filter_map(|&nid| vals.get(&nid).map(|&v| (nid, v)))
-            .collect()
+        candidate_nodes.par_iter().filter_map(|&nid| vals.get(&nid).map(|&v| (nid, v))).collect()
     } else {
         let xi = x_idx.unwrap();
         let yi = y_idx.unwrap();
@@ -280,8 +285,12 @@ pub fn compute_dataset_disp_invariants(
     let mut min_disp = (f32::INFINITY, 0);
 
     for (nid, d) in results {
-        if d > max_disp.0 { max_disp = (d, nid); }
-        if d < min_disp.0 { min_disp = (d, nid); }
+        if d > max_disp.0 {
+            max_disp = (d, nid);
+        }
+        if d < min_disp.0 {
+            min_disp = (d, nid);
+        }
     }
 
     Some(DispExtremaSummary {
@@ -296,10 +305,7 @@ pub fn compute_dataset_disp_invariants(
 
 impl FrdModel {
     /// Compute peak stress history across all steps/increments in the model
-    pub fn compute_stress_history(
-        &self,
-        filter_nodes: Option<&HashSet<u32>>,
-    ) -> Vec<StressExtremaSummary> {
+    pub fn compute_stress_history(&self, filter_nodes: Option<&HashSet<u32>>) -> Vec<StressExtremaSummary> {
         let mut history = Vec::new();
         for step in &self.steps {
             for ds in &step.datasets {
@@ -317,10 +323,7 @@ impl FrdModel {
     }
 
     /// Compute peak displacement history across all steps/increments in the model
-    pub fn compute_disp_history(
-        &self,
-        filter_nodes: Option<&HashSet<u32>>,
-    ) -> Vec<DispExtremaSummary> {
+    pub fn compute_disp_history(&self, filter_nodes: Option<&HashSet<u32>>) -> Vec<DispExtremaSummary> {
         let mut history = Vec::new();
         for step in &self.steps {
             for ds in &step.datasets {
@@ -369,12 +372,24 @@ impl crate::parser::DenseDataset {
             let (s1, _, s3) = tensor.principal_stresses();
             let tresca = (s1 - s3) * 0.5;
             let hydro = tensor.hydrostatic();
-            if vm > max_vm.0 { max_vm = (vm, nid); }
-            if vm < min_vm.0 { min_vm = (vm, nid); }
-            if s1 > max_s1.0 { max_s1 = (s1, nid); }
-            if s3 < min_s3.0 { min_s3 = (s3, nid); }
-            if tresca > max_tresca.0 { max_tresca = (tresca, nid); }
-            if hydro > max_hydro.0 { max_hydro = (hydro, nid); }
+            if vm > max_vm.0 {
+                max_vm = (vm, nid);
+            }
+            if vm < min_vm.0 {
+                min_vm = (vm, nid);
+            }
+            if s1 > max_s1.0 {
+                max_s1 = (s1, nid);
+            }
+            if s3 < min_s3.0 {
+                min_s3 = (s3, nid);
+            }
+            if tresca > max_tresca.0 {
+                max_tresca = (tresca, nid);
+            }
+            if hydro > max_hydro.0 {
+                max_hydro = (hydro, nid);
+            }
         }
 
         if node_count == 0 {
@@ -423,8 +438,12 @@ impl crate::parser::DenseDataset {
                 (None, Some((x, y, z))) => displacement_magnitude(x[i], y[i], z[i]),
                 (None, None) => return None,
             };
-            if d > max_disp.0 { max_disp = (d, nid); }
-            if d < min_disp.0 { min_disp = (d, nid); }
+            if d > max_disp.0 {
+                max_disp = (d, nid);
+            }
+            if d < min_disp.0 {
+                min_disp = (d, nid);
+            }
         }
 
         if node_count == 0 {
@@ -460,8 +479,12 @@ impl crate::parser::DenseDataset {
             }
             node_count += 1;
             let d = displacement_magnitude(m1[i], m2[i], m3[i]);
-            if d > max_disp.0 { max_disp = (d, nid); }
-            if d < min_disp.0 { min_disp = (d, nid); }
+            if d > max_disp.0 {
+                max_disp = (d, nid);
+            }
+            if d < min_disp.0 {
+                min_disp = (d, nid);
+            }
         }
 
         if node_count == 0 {

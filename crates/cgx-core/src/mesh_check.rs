@@ -454,12 +454,8 @@ const SET_IN_DATA: [(&str, bool); 6] = [
 /// not a number, and the `MATERIAL=` of `*SOLID SECTION`. Surfaces defined in the deck count as
 /// defined names for `DLOAD`/`DSLOAD`.
 pub fn reference_problems(mesh: &InpMesh, scan: &InpScan) -> Vec<String> {
-    let materials: HashSet<String> = scan
-        .cards
-        .iter()
-        .filter(|c| c.keyword == "MATERIAL")
-        .filter_map(|c| param(c, "NAME").map(name_of))
-        .collect();
+    let materials: HashSet<String> =
+        scan.cards.iter().filter(|c| c.keyword == "MATERIAL").filter_map(|c| param(c, "NAME").map(name_of)).collect();
     let surfaces: HashSet<String> = scan
         .cards
         .iter()

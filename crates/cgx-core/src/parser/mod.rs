@@ -3,27 +3,27 @@
 
 //! FRD parser module supporting both ASCII and Binary (single/double precision) CalculiX result formats.
 
-pub mod reader;
 pub mod frd;
-pub mod inp;
 pub mod frd_index;
+pub mod inp;
 pub mod inp_cards;
 pub mod inp_edit;
 pub mod inp_mesh;
+pub mod reader;
 
-pub use reader::ByteCursor;
 pub use frd::FrdParserEngine;
 pub use frd_index::{DatasetEntry, DenseDataset, FrdIndex, StepRef};
+pub use inp::{
+    consolidate_inp, inspect_inp, load_companion_sets, parse_sets_from_inp, parse_sets_from_str, InpConsolidateStats,
+    InpInclude, InpSummary,
+};
 pub use inp_cards::*;
 pub use inp_edit::*;
 pub use inp_mesh::*;
-pub use inp::{
-    consolidate_inp, inspect_inp, parse_sets_from_inp, parse_sets_from_str, load_companion_sets,
-    InpConsolidateStats, InpInclude, InpSummary,
-};
+pub use reader::ByteCursor;
 
-use std::path::Path;
 use crate::{FrdModel, Result};
+use std::path::Path;
 
 /// Convenience function to parse any CalculiX FRD model (ASCII, Binary Float, or Binary Double)
 pub fn parse_frd_file<P: AsRef<Path>>(path: P) -> Result<FrdModel> {

@@ -7,9 +7,9 @@ use crate::error::{nearest, ToolError};
 use crate::frd_tools::Table;
 use crate::paths::Roots;
 use cgx_core::{
-    by_normal, components, connected_patch, exterior_faces, face_nodes, faces_of_surface, in_box, joining_cards, node_usage, mass_properties,
-    near_point, nearest_face, on_cylinder, on_plane, quality, read_inp_mesh, reference_problems, scan_cards, write_nset_card,
-    write_surface_card, Face, InpMesh, InpScan, ScanLimits,
+    by_normal, components, connected_patch, exterior_faces, face_nodes, faces_of_surface, in_box, joining_cards,
+    mass_properties, near_point, nearest_face, node_usage, on_cylinder, on_plane, quality, read_inp_mesh,
+    reference_problems, scan_cards, write_nset_card, write_surface_card, Face, InpMesh, InpScan, ScanLimits,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,11 @@ fn bbox_of(points: impl Iterator<Item = V3>) -> BBox {
             hi[k] = hi[k].max(v);
         }
     }
-    if any { BBox { min: lo, max: hi } } else { BBox { min: [0.0; 3], max: [0.0; 3] } }
+    if any {
+        BBox { min: lo, max: hi }
+    } else {
+        BBox { min: [0.0; 3], max: [0.0; 3] }
+    }
 }
 
 // ---------- mesh_check ----------
@@ -195,7 +199,16 @@ pub fn check(roots: &Roots, p: MeshCheckIn) -> Result<MeshCheckOut, ToolError> {
         rows: mass
             .by_material
             .iter()
-            .map(|m| vec![json!(m.elset), json!(m.material), json!(m.density), json!(m.elements), json!(m.volume), json!(m.mass)])
+            .map(|m| {
+                vec![
+                    json!(m.elset),
+                    json!(m.material),
+                    json!(m.density),
+                    json!(m.elements),
+                    json!(m.volume),
+                    json!(m.mass),
+                ]
+            })
             .collect(),
     };
     let worst_aspect = Table {
@@ -457,7 +470,11 @@ fn mean_normal_of(faces: &[Face]) -> V3 {
         }
     }
     let l = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
-    if l > 1e-12 * faces.iter().map(|f| f.area).sum::<f64>().max(f64::MIN_POSITIVE) { [n[0] / l, n[1] / l, n[2] / l] } else { [0.0; 3] }
+    if l > 1e-12 * faces.iter().map(|f| f.area).sum::<f64>().max(f64::MIN_POSITIVE) {
+        [n[0] / l, n[1] / l, n[2] / l]
+    } else {
+        [0.0; 3]
+    }
 }
 
 pub fn select(roots: &Roots, p: MeshSelectIn) -> Result<MeshSelectOut, ToolError> {
@@ -542,7 +559,9 @@ pub fn select(roots: &Roots, p: MeshSelectIn) -> Result<MeshSelectOut, ToolError
         ];
         corners
             .iter()
-            .map(|p| ((p[0] - c[0]) * mean_normal[0] + (p[1] - c[1]) * mean_normal[1] + (p[2] - c[2]) * mean_normal[2]).abs())
+            .map(|p| {
+                ((p[0] - c[0]) * mean_normal[0] + (p[1] - c[1]) * mean_normal[1] + (p[2] - c[2]) * mean_normal[2]).abs()
+            })
             .fold(0.0, f64::max)
     };
 
@@ -553,7 +572,16 @@ pub fn select(roots: &Roots, p: MeshSelectIn) -> Result<MeshSelectOut, ToolError
         rows: by_area
             .iter()
             .take(10)
-            .map(|f| vec![json!(f.element), json!(f.face), json!(f.centroid[0]), json!(f.centroid[1]), json!(f.centroid[2]), json!(f.area)])
+            .map(|f| {
+                vec![
+                    json!(f.element),
+                    json!(f.face),
+                    json!(f.centroid[0]),
+                    json!(f.centroid[1]),
+                    json!(f.centroid[2]),
+                    json!(f.area),
+                ]
+            })
             .collect(),
     };
 
@@ -610,7 +638,8 @@ fn save_selection(
     node_ids: &[u32],
 ) -> Result<SavedOut, ToolError> {
     let deck_dir = deck.parent().unwrap_or(Path::new("."));
-    let default = deck_dir.join(format!("{}.{}", spec.name, if spec.kind == SaveKind::Surface { "sur" } else { "nam" }));
+    let default =
+        deck_dir.join(format!("{}.{}", spec.name, if spec.kind == SaveKind::Surface { "sur" } else { "nam" }));
     let raw = spec.output_path.clone().unwrap_or_else(|| default.to_string_lossy().into_owned());
     let out = roots.creatable(&raw, &["sur", "nam", "inp", "inc"])?;
 
@@ -633,7 +662,8 @@ fn save_selection(
         SaveKind::Nset => write_nset_card(&spec.name, node_ids),
     };
     std::fs::write(&out, &text).map_err(ToolError::internal)?;
-    let target = out.strip_prefix(deck_dir).map(|r| r.display().to_string()).unwrap_or_else(|_| out.display().to_string());
+    let target =
+        out.strip_prefix(deck_dir).map(|r| r.display().to_string()).unwrap_or_else(|_| out.display().to_string());
     Ok(SavedOut { file: roots.display(&out), card: format!("*INCLUDE, INPUT={target}"), lines: text.lines().count() })
 }
 
@@ -670,8 +700,14 @@ mod tests {
             for j in 0..ny {
                 for i in 0..nx {
                     let c = [
-                        id(i, j, k), id(i + 1, j, k), id(i + 1, j + 1, k), id(i, j + 1, k),
-                        id(i, j, k + 1), id(i + 1, j, k + 1), id(i + 1, j + 1, k + 1), id(i, j + 1, k + 1),
+                        id(i, j, k),
+                        id(i + 1, j, k),
+                        id(i + 1, j + 1, k),
+                        id(i, j + 1, k),
+                        id(i, j, k + 1),
+                        id(i + 1, j, k + 1),
+                        id(i + 1, j + 1, k + 1),
+                        id(i, j + 1, k + 1),
                     ];
                     let c: Vec<String> = c.iter().map(|v| v.to_string()).collect();
                     s += &format!("{}, {}\n", e, c.join(", "));
@@ -691,7 +727,17 @@ mod tests {
     }
 
     fn sel(path: &str) -> MeshSelectIn {
-        MeshSelectIn { path: path.into(), from: None, normal: None, plane: None, box_: None, cylinder: None, near: None, patch: None, save: None }
+        MeshSelectIn {
+            path: path.into(),
+            from: None,
+            normal: None,
+            plane: None,
+            box_: None,
+            cylinder: None,
+            near: None,
+            patch: None,
+            save: None,
+        }
     }
 
     fn up() -> NormalFilter {
@@ -731,7 +777,11 @@ mod tests {
         assert_eq!(out.free_nodes.first, vec![900]);
         assert_eq!(out.mass.unassigned_elements, 1);
         assert!(out.mass.mass.is_none());
-        assert!(out.problems.items.iter().any(|m| m.starts_with("deck.inp:") && m.contains("GHOST")), "{:?}", out.problems.items);
+        assert!(
+            out.problems.items.iter().any(|m| m.starts_with("deck.inp:") && m.contains("GHOST")),
+            "{:?}",
+            out.problems.items
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -785,7 +835,10 @@ mod tests {
         let out = select(&roots, MeshSelectIn { plane: Some(plane), box_: Some(bx), ..sel("deck.inp") }).unwrap();
         assert_eq!(out.faces, 3);
         assert!(close(out.area, 3.0));
-        assert_eq!(out.stages.rows.iter().map(|r| r[0].as_str().unwrap()).collect::<Vec<_>>(), ["start", "plane", "box"]);
+        assert_eq!(
+            out.stages.rows.iter().map(|r| r[0].as_str().unwrap()).collect::<Vec<_>>(),
+            ["start", "plane", "box"]
+        );
 
         // Patch: the flood stays on the top plane because the edges to the sides are 90 degrees.
         let patch = PatchFilter { seed: [0.4, 0.4, 1.0], max_angle_deg: None };
@@ -828,10 +881,17 @@ mod tests {
         let (dir, roots) = setup(&block_deck(3, 3, 1));
         let plane = PlaneFilter { point: [0.0, 0.0, 5.0], normal: [0.0, 0.0, 1.0], tol: 1e-6 };
         let save = SaveSpec { name: "NOPE".into(), kind: SaveKind::Surface, output_path: None, overwrite: false };
-        let out = select(&roots, MeshSelectIn { normal: Some(up()), plane: Some(plane), save: Some(save), ..sel("deck.inp") }).unwrap();
+        let out = select(
+            &roots,
+            MeshSelectIn { normal: Some(up()), plane: Some(plane), save: Some(save), ..sel("deck.inp") },
+        )
+        .unwrap();
         assert_eq!((out.faces, out.nodes), (0, 0));
         assert_eq!(out.area, 0.0);
-        assert_eq!(out.stages.rows, vec![vec![json!("start"), json!(30)], vec![json!("normal"), json!(9)], vec![json!("plane"), json!(0)]]);
+        assert_eq!(
+            out.stages.rows,
+            vec![vec![json!("start"), json!(30)], vec![json!("normal"), json!(9)], vec![json!("plane"), json!(0)]]
+        );
         let hint = out.hint.unwrap();
         assert!(hint.contains("`plane`") && hint.contains("9") && hint.contains("Nothing was saved"), "{hint}");
         assert!(out.saved.is_none() && !dir.join("root/NOPE.sur").exists());
@@ -839,7 +899,11 @@ mod tests {
         let err = select(&roots, sel("deck.inp")).unwrap_err();
         assert_eq!(err.code, "INVALID_ARGUMENT");
         assert!(err.hint.unwrap().contains("normal, plane, box, cylinder, near, patch"));
-        let err = select(&roots, MeshSelectIn { normal: Some(NormalFilter { direction: [0.0; 3], max_angle_deg: None }), ..sel("deck.inp") }).unwrap_err();
+        let err = select(
+            &roots,
+            MeshSelectIn { normal: Some(NormalFilter { direction: [0.0; 3], max_angle_deg: None }), ..sel("deck.inp") },
+        )
+        .unwrap_err();
         assert_eq!(err.code, "INVALID_ARGUMENT");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -848,7 +912,8 @@ mod tests {
     fn save_surface_roundtrips_and_refuses_overwrite() {
         let (dir, roots) = setup(&block_deck(3, 3, 1));
         let spec = |overwrite| SaveSpec { name: "TOP".into(), kind: SaveKind::Surface, output_path: None, overwrite };
-        let out = select(&roots, MeshSelectIn { normal: Some(up()), save: Some(spec(false)), ..sel("deck.inp") }).unwrap();
+        let out =
+            select(&roots, MeshSelectIn { normal: Some(up()), save: Some(spec(false)), ..sel("deck.inp") }).unwrap();
         let saved = out.saved.unwrap();
         assert_eq!((saved.file.as_str(), saved.card.as_str(), saved.lines), ("TOP.sur", "*INCLUDE, INPUT=TOP.sur", 10));
         let text = std::fs::read_to_string(dir.join("root/TOP.sur")).unwrap();
@@ -858,7 +923,8 @@ mod tests {
         let original = std::fs::read_to_string(dir.join("root/deck.inp")).unwrap();
         std::fs::write(dir.join("root/deck2.inp"), format!("{original}{}\n", saved.card)).unwrap();
         let mesh = read_inp_mesh(&dir.join("root/deck2.inp")).unwrap();
-        let back: Vec<(u32, u8)> = faces_of_surface(&mesh, "TOP").unwrap().iter().map(|f| (f.element, f.face)).collect();
+        let back: Vec<(u32, u8)> =
+            faces_of_surface(&mesh, "TOP").unwrap().iter().map(|f| (f.element, f.face)).collect();
         let mesh1 = read_inp_mesh(&dir.join("root/deck.inp")).unwrap();
         let mut want: Vec<(u32, u8)> = by_normal(&exterior_faces(&mesh1), [0.0, 0.0, 1.0], 5.0)
             .into_iter()
@@ -871,15 +937,24 @@ mod tests {
         assert_eq!(back.len(), 9);
 
         // Overwrite refusal, then explicit overwrite.
-        let err = select(&roots, MeshSelectIn { normal: Some(up()), save: Some(spec(false)), ..sel("deck.inp") }).unwrap_err();
+        let err = select(&roots, MeshSelectIn { normal: Some(up()), save: Some(spec(false)), ..sel("deck.inp") })
+            .unwrap_err();
         assert_eq!(err.code, "RESULTS_EXIST");
         assert!(select(&roots, MeshSelectIn { normal: Some(up()), save: Some(spec(true)), ..sel("deck.inp") }).is_ok());
 
         // Node set with a custom path.
-        let nset = SaveSpec { name: "TOPN".into(), kind: SaveKind::Nset, output_path: Some("topn.nam".into()), overwrite: false };
+        let nset = SaveSpec {
+            name: "TOPN".into(),
+            kind: SaveKind::Nset,
+            output_path: Some("topn.nam".into()),
+            overwrite: false,
+        };
         let out = select(&roots, MeshSelectIn { normal: Some(up()), save: Some(nset), ..sel("deck.inp") }).unwrap();
         let saved = out.saved.unwrap();
-        assert_eq!((saved.file.as_str(), saved.card.as_str(), saved.lines), ("topn.nam", "*INCLUDE, INPUT=topn.nam", 3));
+        assert_eq!(
+            (saved.file.as_str(), saved.card.as_str(), saved.lines),
+            ("topn.nam", "*INCLUDE, INPUT=topn.nam", 3)
+        );
         let nam = std::fs::read_to_string(dir.join("root/topn.nam")).unwrap();
         assert!(nam.starts_with("*NSET, NSET=TOPN\n") && nam.contains("17, 18"), "{nam}");
         let _ = std::fs::remove_dir_all(&dir);
@@ -890,7 +965,12 @@ mod tests {
         let (dir, roots) = setup(&block_deck(1, 1, 1));
         std::fs::write(dir.join("outside.inp"), "x").unwrap();
         let go = |name: &str, out: Option<&str>| {
-            let save = SaveSpec { name: name.into(), kind: SaveKind::Surface, output_path: out.map(String::from), overwrite: true };
+            let save = SaveSpec {
+                name: name.into(),
+                kind: SaveKind::Surface,
+                output_path: out.map(String::from),
+                overwrite: true,
+            };
             select(&roots, MeshSelectIn { normal: Some(up()), save: Some(save), ..sel("deck.inp") })
         };
         for bad in ["", "1abc", "a b", "a.b", "ünï", &"a".repeat(81)] {
@@ -993,7 +1073,14 @@ mod tests {
         if contact.exists() {
             let roots = Roots::new(vec![contact.parent().unwrap().to_path_buf()]).unwrap();
             let out = check(&roots, MeshCheckIn { path: "contact4badnl.inp".into() }).unwrap();
-            println!("contact4badnl: verdict={} parts={} joined_by={:?} nonpos={:?} free={:?}", out.verdict, out.parts.count, out.parts.joined_by, out.quality.non_positive_volume.first, out.free_nodes.first);
+            println!(
+                "contact4badnl: verdict={} parts={} joined_by={:?} nonpos={:?} free={:?}",
+                out.verdict,
+                out.parts.count,
+                out.parts.joined_by,
+                out.quality.non_positive_volume.first,
+                out.free_nodes.first
+            );
             assert_eq!(out.verdict, "REVIEW");
         }
     }
@@ -1001,7 +1088,8 @@ mod tests {
     #[test]
     #[allow(clippy::print_stdout)]
     fn rotor_deck_check() {
-        let deck = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
+        let deck =
+            &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/benchmarks/compressor_rotor/lavffcyc.inp");
         if !deck.exists() {
             eprintln!("rotor deck not present, skipping");
             return;

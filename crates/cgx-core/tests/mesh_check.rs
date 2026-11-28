@@ -26,7 +26,13 @@ fn block(n: usize, origin: [f64; 3], first_node: usize, first_elem: usize, name:
     for k in 0..=n {
         for j in 0..=n {
             for i in 0..=n {
-                s += &format!("{}, {}, {}, {}\n", id(i, j, k), origin[0] + i as f64, origin[1] + j as f64, origin[2] + k as f64);
+                s += &format!(
+                    "{}, {}, {}, {}\n",
+                    id(i, j, k),
+                    origin[0] + i as f64,
+                    origin[1] + j as f64,
+                    origin[2] + k as f64
+                );
             }
         }
     }
@@ -36,8 +42,14 @@ fn block(n: usize, origin: [f64; 3], first_node: usize, first_elem: usize, name:
         for j in 0..n {
             for i in 0..n {
                 let c = [
-                    id(i, j, k), id(i + 1, j, k), id(i + 1, j + 1, k), id(i, j + 1, k),
-                    id(i, j, k + 1), id(i + 1, j, k + 1), id(i + 1, j + 1, k + 1), id(i, j + 1, k + 1),
+                    id(i, j, k),
+                    id(i + 1, j, k),
+                    id(i + 1, j + 1, k),
+                    id(i, j + 1, k),
+                    id(i, j, k + 1),
+                    id(i + 1, j, k + 1),
+                    id(i + 1, j + 1, k + 1),
+                    id(i, j + 1, k + 1),
                 ];
                 let c: Vec<String> = c.iter().map(|v| v.to_string()).collect();
                 s += &format!("{}, {}\n", e, c.join(", "));
@@ -48,7 +60,8 @@ fn block(n: usize, origin: [f64; 3], first_node: usize, first_elem: usize, name:
     s
 }
 
-const STEEL: &str = "*MATERIAL, NAME=Steel\n*ELASTIC\n210000., 0.3\n*DENSITY\n7.85e-9\n*SOLID SECTION, ELSET=Blk, MATERIAL=STEEL\n";
+const STEEL: &str =
+    "*MATERIAL, NAME=Steel\n*ELASTIC\n210000., 0.3\n*DENSITY\n7.85e-9\n*SOLID SECTION, ELSET=Blk, MATERIAL=STEEL\n";
 
 fn close(a: f64, b: f64) -> bool {
     (a - b).abs() <= 1e-9 * (1.0 + b.abs())
@@ -162,8 +175,14 @@ fn reference_problems_report_undefined_things() {
 /// Unit cube as C3D20 (corner + mid-side nodes) and as C3D8; both of size `s` x `s` x `s`.
 fn quad_cube(s: f64) -> String {
     let c: [[f64; 3]; 8] = [
-        [0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.],
-        [0., 0., 1.], [1., 0., 1.], [1., 1., 1.], [0., 1., 1.],
+        [0., 0., 0.],
+        [1., 0., 0.],
+        [1., 1., 0.],
+        [0., 1., 0.],
+        [0., 0., 1.],
+        [1., 0., 1.],
+        [1., 1., 1.],
+        [0., 1., 1.],
     ];
     let edges = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)];
     let mut pts: Vec<[f64; 3]> = c.to_vec();
@@ -198,7 +217,9 @@ fn c3d20_volume_matches_c3d8_and_face_nodes_are_planar() {
         // Every node lies on the plane of the face (through the centroid, along the normal).
         for id in nodes {
             let n = &q.nodes[q.node_index[&id]];
-            let d = (n.x - f.centroid[0]) * f.normal[0] + (n.y - f.centroid[1]) * f.normal[1] + (n.z - f.centroid[2]) * f.normal[2];
+            let d = (n.x - f.centroid[0]) * f.normal[0]
+                + (n.y - f.centroid[1]) * f.normal[1]
+                + (n.z - f.centroid[2]) * f.normal[2];
             assert!(d.abs() < 1e-12, "face S{} node {id} off plane by {d}", f.face);
         }
     }
@@ -248,7 +269,16 @@ fn on_cylinder_selects_only_the_bore() {
     }
     d += "*ELEMENT, TYPE=C3D8\n";
     for i in 0..seg {
-        let c = [node(0, i, 0), node(1, i, 0), node(1, i + 1, 0), node(0, i + 1, 0), node(0, i, 1), node(1, i, 1), node(1, i + 1, 1), node(0, i + 1, 1)];
+        let c = [
+            node(0, i, 0),
+            node(1, i, 0),
+            node(1, i + 1, 0),
+            node(0, i + 1, 0),
+            node(0, i, 1),
+            node(1, i, 1),
+            node(1, i + 1, 1),
+            node(0, i + 1, 1),
+        ];
         let c: Vec<String> = c.iter().map(|v| v.to_string()).collect();
         d += &format!("{}, {}\n", i + 1, c.join(", "));
     }
@@ -283,13 +313,14 @@ fn surface_closure_and_volume(mesh: &InpMesh) -> (f64, f64, f64) {
         [n.x, n.y, n.z]
     };
     let sub = |a: [f64; 3], b: [f64; 3]| [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-    let cross = |a: [f64; 3], b: [f64; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let cross =
+        |a: [f64; 3], b: [f64; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
     let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
     for f in &faces {
         total_area += f.area;
-        for k in 0..3 {
-            normal_sum[k] += f.area * f.normal[k];
+        for (sum, n) in normal_sum.iter_mut().zip(f.normal) {
+            *sum += f.area * n;
         }
         // Triangulate the face (fan from corner 0) so warped quads are integrated cleanly.
         let p0 = pt(f.corners[0]);
@@ -364,14 +395,29 @@ fn curved_c3d20_annulus_corner_node_approximation_error() {
         let i1 = 2 * i + 2;
         let n = [
             // corners: bottom (k=0) then top (k=2)
-            add_pt(0, i0, 0), add_pt(2, i0, 0), add_pt(2, i1, 0), add_pt(0, i1, 0),
-            add_pt(0, i0, 2), add_pt(2, i0, 2), add_pt(2, i1, 2), add_pt(0, i1, 2),
+            add_pt(0, i0, 0),
+            add_pt(2, i0, 0),
+            add_pt(2, i1, 0),
+            add_pt(0, i1, 0),
+            add_pt(0, i0, 2),
+            add_pt(2, i0, 2),
+            add_pt(2, i1, 2),
+            add_pt(0, i1, 2),
             // mid-sides bottom: 8..11
-            add_pt(1, i0, 0), add_pt(2, im, 0), add_pt(1, i1, 0), add_pt(0, im, 0),
+            add_pt(1, i0, 0),
+            add_pt(2, im, 0),
+            add_pt(1, i1, 0),
+            add_pt(0, im, 0),
             // mid-sides top: 12..15
-            add_pt(1, i0, 2), add_pt(2, im, 2), add_pt(1, i1, 2), add_pt(0, im, 2),
+            add_pt(1, i0, 2),
+            add_pt(2, im, 2),
+            add_pt(1, i1, 2),
+            add_pt(0, im, 2),
             // vertical mid-sides: 16..19
-            add_pt(0, i0, 1), add_pt(2, i0, 1), add_pt(2, i1, 1), add_pt(0, i1, 1),
+            add_pt(0, i0, 1),
+            add_pt(2, i0, 1),
+            add_pt(2, i1, 1),
+            add_pt(0, i1, 1),
         ];
         elems.push((i + 1, n));
     }
@@ -390,7 +436,10 @@ fn curved_c3d20_annulus_corner_node_approximation_error() {
     let corner_vol: f64 = (0..m.elements.len()).map(|i| element_volume(&m, i).unwrap()).sum();
     let analytic_vol = std::f64::consts::PI * (4.0 - 1.0) * 1.0;
     let rel_err = (analytic_vol - corner_vol).abs() / analytic_vol;
-    println!("C3D20 16-seg annulus: analytic={analytic_vol:.6}, corner_vol={corner_vol:.6}, rel_err={:.3}%", rel_err * 100.0);
+    println!(
+        "C3D20 16-seg annulus: analytic={analytic_vol:.6}, corner_vol={corner_vol:.6}, rel_err={:.3}%",
+        rel_err * 100.0
+    );
     // Exact 16-gon prism shortfall is 1 - sin(pi/8)/(pi/8) ≈ 2.55%.
     assert!((rel_err - 0.0255).abs() < 0.001, "unexpected corner-node error {rel_err}");
 }

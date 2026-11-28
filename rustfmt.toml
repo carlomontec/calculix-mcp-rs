@@ -1,0 +1,4 @@
+# Formatting for the workspace; CI runs `cargo fmt --all --check`.
+edition = "2021"
+max_width = 120
+use_small_heuristics = "Max"

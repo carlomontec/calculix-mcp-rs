@@ -46,8 +46,14 @@ fn block(n: [usize; 3], h: f64, origin: [f64; 3], first: usize, name: &str, jitt
         for j in 0..n[1] {
             for i in 0..n[0] {
                 let c = [
-                    id(i, j, k), id(i + 1, j, k), id(i + 1, j + 1, k), id(i, j + 1, k),
-                    id(i, j, k + 1), id(i + 1, j, k + 1), id(i + 1, j + 1, k + 1), id(i, j + 1, k + 1),
+                    id(i, j, k),
+                    id(i + 1, j, k),
+                    id(i + 1, j + 1, k),
+                    id(i, j + 1, k),
+                    id(i, j, k + 1),
+                    id(i + 1, j, k + 1),
+                    id(i + 1, j + 1, k + 1),
+                    id(i, j + 1, k + 1),
                 ];
                 let c: Vec<String> = c.iter().map(|v| v.to_string()).collect();
                 s += &format!("{}, {}\n", e, c.join(", "));
@@ -81,7 +87,11 @@ fn close(a: f64, b: f64, tol: f64) -> bool {
 #[test]
 fn gap_of_0_05_between_two_blocks() {
     // Lower block 2x2x1 (z in [0,1]), upper block 2x2x1 at z = 1.05.
-    let deck = format!("{}{}", block([2, 2, 1], 1.0, [0.0; 3], 1, "LOW", None), block([2, 2, 1], 1.0, [0.0, 0.0, 1.05], 1000, "UP", None));
+    let deck = format!(
+        "{}{}",
+        block([2, 2, 1], 1.0, [0.0; 3], 1, "LOW", None),
+        block([2, 2, 1], 1.0, [0.0, 0.0, 1.05], 1000, "UP", None)
+    );
     let (_, groups, rep) = run(&deck, Partition::Component, &opts(0.1));
     assert_eq!(groups.len(), 2);
     assert_eq!((groups[0].name.as_str(), groups[1].name.as_str()), ("PART_1", "PART_2"));
@@ -94,7 +104,11 @@ fn gap_of_0_05_between_two_blocks() {
     let side = |g: usize| if groups[g].elements.contains(&1) { "LOW" } else { "UP" };
     for (list, g) in [(&p.faces_a, p.side_a), (&p.faces_b, p.side_b)] {
         let want = if side(g) == "LOW" { 2 } else { 1 };
-        assert!(list.iter().all(|&i| rep.faces[i].face == want), "{:?}", list.iter().map(|&i| &rep.faces[i]).collect::<Vec<_>>());
+        assert!(
+            list.iter().all(|&i| rep.faces[i].face == want),
+            "{:?}",
+            list.iter().map(|&i| &rep.faces[i]).collect::<Vec<_>>()
+        );
     }
     // Too small a gap finds nothing; the nearest-gap search reports 0.05.
     let o = opts(0.01);
@@ -108,7 +122,11 @@ fn gap_of_0_05_between_two_blocks() {
 
 #[test]
 fn overlapping_blocks_give_negative_gap() {
-    let deck = format!("{}{}", block([2, 2, 1], 1.0, [0.0; 3], 1, "LOW", None), block([2, 2, 1], 1.0, [0.0, 0.0, 0.97], 1000, "UP", None));
+    let deck = format!(
+        "{}{}",
+        block([2, 2, 1], 1.0, [0.0; 3], 1, "LOW", None),
+        block([2, 2, 1], 1.0, [0.0, 0.0, 0.97], 1000, "UP", None)
+    );
     let (_, _, rep) = run(&deck, Partition::Component, &opts(0.1));
     assert_eq!(rep.pairs.len(), 1);
     let p = &rep.pairs[0];
@@ -120,7 +138,8 @@ fn overlapping_blocks_give_negative_gap() {
 fn shared_nodes_make_one_component_and_no_pair() {
     // The second block starts on the first block's top nodes: reuse ids by offsetting a block
     // of 2 layers and splitting it into two element sets.
-    let deck = block([2, 2, 2], 1.0, [0.0; 3], 1, "ALL", None) + "*ELSET, ELSET=LOWER\n1, 2, 3, 4\n*ELSET, ELSET=UPPER\n5, 6, 7, 8\n";
+    let deck = block([2, 2, 2], 1.0, [0.0; 3], 1, "ALL", None)
+        + "*ELSET, ELSET=LOWER\n1, 2, 3, 4\n*ELSET, ELSET=UPPER\n5, 6, 7, 8\n";
     let (_, groups, rep) = run(&deck, Partition::Component, &opts(0.1));
     assert_eq!(groups.len(), 1);
     assert!(rep.pairs.is_empty());
@@ -138,7 +157,11 @@ fn perpendicular_faces_are_excluded() {
     // faces (+z, centroids at x = 1.5) lie 0.55 in front of B's -x side (x = 2.05) and
     // project inside it, but at 90 degrees. The parallel pairs (A +x / B -x, A top / B
     // bottom) do not overlap, so their projections fall outside.
-    let deck = format!("{}{}", block([2, 2, 1], 1.0, [0.0; 3], 1, "A", None), block([1, 2, 2], 1.0, [2.05, 0.0, 0.95], 1000, "B", None));
+    let deck = format!(
+        "{}{}",
+        block([2, 2, 1], 1.0, [0.0; 3], 1, "A", None),
+        block([1, 2, 2], 1.0, [2.05, 0.0, 0.95], 1000, "B", None)
+    );
     let (_, _, rep) = run(&deck, Partition::Component, &opts(0.6));
     assert!(rep.pairs.is_empty(), "{:?}", rep.pairs);
     assert!(rep.near_checks > rep.opposing_checks, "near {} opposing {}", rep.near_checks, rep.opposing_checks);
@@ -147,13 +170,18 @@ fn perpendicular_faces_are_excluded() {
     let o = ContactSearch { max_angle_deg: 95.0, ..opts(0.6) };
     let (_, _, rep) = run(&deck, Partition::Component, &o);
     assert_eq!(rep.pairs.len(), 1);
-    assert!(rep.pairs[0].pairs.iter().all(|p| (rep.faces[p.a].normal[2] - rep.faces[p.b].normal[2]).abs() > 0.5 || (rep.faces[p.a].normal[0] - rep.faces[p.b].normal[0]).abs() > 0.5));
+    assert!(rep.pairs[0].pairs.iter().all(|p| (rep.faces[p.a].normal[2] - rep.faces[p.b].normal[2]).abs() > 0.5
+        || (rep.faces[p.a].normal[0] - rep.faces[p.b].normal[0]).abs() > 0.5));
 }
 
 #[test]
 fn partial_overlap_pairs_only_the_overlap() {
     // Lower 4x4x1, upper 4x4x1 shifted by 2 in x and lifted by a 0.02 gap: overlap 2x4 = 8.
-    let deck = format!("{}{}", block([4, 4, 1], 1.0, [0.0; 3], 1, "LOW", None), block([4, 4, 1], 1.0, [2.0, 0.0, 1.02], 1000, "UP", None));
+    let deck = format!(
+        "{}{}",
+        block([4, 4, 1], 1.0, [0.0; 3], 1, "LOW", None),
+        block([4, 4, 1], 1.0, [2.0, 0.0, 1.02], 1000, "UP", None)
+    );
     let (_, groups, rep) = run(&deck, Partition::Component, &opts(0.05));
     assert_eq!(rep.pairs.len(), 1);
     let p = &rep.pairs[0];
@@ -169,7 +197,11 @@ fn partial_overlap_pairs_only_the_overlap() {
 #[test]
 fn finer_side_is_suggested_as_slave() {
     // Coarse lower block (edge 1), fine upper block (edge 0.5) over the same 2x2 footprint.
-    let deck = format!("{}{}", block([2, 2, 1], 1.0, [0.0; 3], 1, "COARSE", None), block([4, 4, 1], 0.5, [0.0, 0.0, 1.01], 1000, "FINE", None));
+    let deck = format!(
+        "{}{}",
+        block([2, 2, 1], 1.0, [0.0; 3], 1, "COARSE", None),
+        block([4, 4, 1], 0.5, [0.0, 0.0, 1.01], 1000, "FINE", None)
+    );
     let (mesh, scan) = load(&deck);
     let groups = partition_groups(&mesh, &scan, Partition::Elset);
     assert_eq!(groups.iter().map(|g| g.name.as_str()).collect::<Vec<_>>(), ["COARSE", "FINE"]);
@@ -207,7 +239,10 @@ fn groups_filter_and_material_partition() {
     let c = groups.iter().position(|g| g.elements == [200]).unwrap();
     let only_a = find_contact_pairs(&mesh, &groups, &ContactSearch { groups: vec![a], ..opts(0.1) });
     assert_eq!(only_a.pairs.len(), 1);
-    assert_eq!((only_a.pairs[0].side_a.min(only_a.pairs[0].side_b), only_a.pairs[0].side_a.max(only_a.pairs[0].side_b)), (a.min(b), a.max(b)));
+    assert_eq!(
+        (only_a.pairs[0].side_a.min(only_a.pairs[0].side_b), only_a.pairs[0].side_a.max(only_a.pairs[0].side_b)),
+        (a.min(b), a.max(b))
+    );
     let a_c = find_contact_pairs(&mesh, &groups, &ContactSearch { groups: vec![a, c], ..opts(0.1) });
     assert!(a_c.pairs.is_empty(), "A and C do not face each other");
 }
@@ -219,7 +254,11 @@ fn grid_equals_brute_force_on_random_blocks() {
         let mut deck = String::new();
         let mut first = 1;
         for b in 0..5 {
-            let n = [1 + (rand01(&mut seed) * 3.0) as usize, 1 + (rand01(&mut seed) * 3.0) as usize, 1 + (rand01(&mut seed) * 2.0) as usize];
+            let n = [
+                1 + (rand01(&mut seed) * 3.0) as usize,
+                1 + (rand01(&mut seed) * 3.0) as usize,
+                1 + (rand01(&mut seed) * 2.0) as usize,
+            ];
             let h = 0.4 + rand01(&mut seed) * 0.6;
             let o = [rand01(&mut seed) * 3.0, rand01(&mut seed) * 3.0, rand01(&mut seed) * 3.0];
             deck += &block(n, h, o, first, &format!("B{b}"), Some((0.05, &mut seed)));
@@ -338,7 +377,10 @@ fn real_decks_cover_their_own_contact_surfaces() {
         let mut sizes = Vec::new();
         let mut clearance: f64 = 0.0;
         for (s, m) in deck_contact_pairs(&scan) {
-            let get = |n: &str| faces_of_surface(&mesh, n).unwrap_or_else(|| panic!("{name}: surface {n} is not an element-face surface"));
+            let get = |n: &str| {
+                faces_of_surface(&mesh, n)
+                    .unwrap_or_else(|| panic!("{name}: surface {n} is not an element-face surface"))
+            };
             let (fs, fm) = (get(&s), get(&m));
             clearance = clearance.max(deck_clearance(&fs, &fm));
             slave.extend(fs.iter().map(|x| (x.element, x.face)));
@@ -406,7 +448,11 @@ fn rotor_single_part_is_fast_and_finds_nothing() {
     for partition in [Partition::Component, Partition::Elset, Partition::Material] {
         let t = std::time::Instant::now();
         let groups = partition_groups(&mesh, &scan, partition);
-        let rep = find_contact_pairs(&mesh, &groups, &ContactSearch { gap_max: 0.1, max_angle_deg: 30.0, groups: Vec::new() });
+        let rep = find_contact_pairs(
+            &mesh,
+            &groups,
+            &ContactSearch { gap_max: 0.1, max_angle_deg: 30.0, groups: Vec::new() },
+        );
         let ms = t.elapsed().as_secs_f64() * 1e3;
         println!(
             "rotor {partition:?}: {} elements, {} groups, {} faces considered, {} near checks, {} group pairs, {ms:.0} ms",
@@ -432,7 +478,8 @@ fn rotor_single_part_is_fast_and_finds_nothing() {
         .map(|(i, c)| ContactGroup { name: format!("G{i}"), elements: c.to_vec(), bbox: ([0.0; 3], [0.0; 3]) })
         .collect();
     let t = std::time::Instant::now();
-    let rep = find_contact_pairs(&mesh, &groups, &ContactSearch { gap_max: 0.1, max_angle_deg: 30.0, groups: Vec::new() });
+    let rep =
+        find_contact_pairs(&mesh, &groups, &ContactSearch { gap_max: 0.1, max_angle_deg: 30.0, groups: Vec::new() });
     let ms = t.elapsed().as_secs_f64() * 1e3;
     println!(
         "rotor split into 8 id-order groups: {} faces through the grid (cell {:.3}), {} near checks, {} opposing, {} face pairs, {} group pairs, {ms:.0} ms",
@@ -444,5 +491,10 @@ fn rotor_single_part_is_fast_and_finds_nothing() {
         rep.pairs.len()
     );
     assert!(rep.faces.len() > 1000);
-    assert!(rep.near_checks < 100 * rep.faces.len(), "near-linear: {} checks for {} faces", rep.near_checks, rep.faces.len());
+    assert!(
+        rep.near_checks < 100 * rep.faces.len(),
+        "near-linear: {} checks for {} faces",
+        rep.near_checks,
+        rep.faces.len()
+    );
 }

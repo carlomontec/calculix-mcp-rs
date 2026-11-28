@@ -11,9 +11,7 @@
 use super::frd::{default_component_names, is_blank, parse_float, parse_int, slice_safe};
 use super::reader::ByteCursor;
 use super::FrdParserEngine;
-use crate::{
-    DispExtremaSummary, FieldType, FrdError, FrdModel, Result, StressExtremaSummary,
-};
+use crate::{DispExtremaSummary, FieldType, FrdError, FrdModel, Result, StressExtremaSummary};
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::ops::Range;
@@ -175,10 +173,7 @@ impl FrdIndex {
 
     /// Parse the payload of dataset `entry` into dense columns.
     pub fn load(&self, entry: usize) -> Result<DenseDataset> {
-        let e = self
-            .entries
-            .get(entry)
-            .ok_or_else(|| FrdError::NotFound(format!("dataset index {}", entry)))?;
+        let e = self.entries.get(entry).ok_or_else(|| FrdError::NotFound(format!("dataset index {}", entry)))?;
         load_dense(self.data.bytes(), e)
     }
 
@@ -189,14 +184,14 @@ impl FrdIndex {
     /// is never taken for a second real stress dataset.
     pub fn stress_history(&self, filter: Option<&HashSet<u32>>) -> Vec<StressExtremaSummary> {
         self.history_jobs(|e| e.field_type == FieldType::Stress)
-        .par_iter()
-        .filter_map(|&(idx, step_number, value)| {
-            let mut summ = self.load(idx).ok()?.stress_extrema(filter)?;
-            summ.step_number = step_number;
-            summ.value = value;
-            Some(summ)
-        })
-        .collect()
+            .par_iter()
+            .filter_map(|&(idx, step_number, value)| {
+                let mut summ = self.load(idx).ok()?.stress_extrema(filter)?;
+                summ.step_number = step_number;
+                summ.value = value;
+                Some(summ)
+            })
+            .collect()
     }
 
     /// Displacement extrema per step, optionally restricted to a node set.
@@ -205,14 +200,14 @@ impl FrdIndex {
     /// summarised by `DenseDataset::pdisp_extrema` instead.
     pub fn disp_history(&self, filter: Option<&HashSet<u32>>) -> Vec<DispExtremaSummary> {
         self.history_jobs(|e| e.field_type == FieldType::Displacement)
-        .par_iter()
-        .filter_map(|&(idx, step_number, value)| {
-            let mut summ = self.load(idx).ok()?.disp_extrema(filter)?;
-            summ.step_number = step_number;
-            summ.value = value;
-            Some(summ)
-        })
-        .collect()
+            .par_iter()
+            .filter_map(|&(idx, step_number, value)| {
+                let mut summ = self.load(idx).ok()?.disp_extrema(filter)?;
+                summ.step_number = step_number;
+                summ.value = value;
+                Some(summ)
+            })
+            .collect()
     }
 
     /// (entry index, step number, step value) for every matching dataset, in step order.
@@ -475,9 +470,7 @@ impl DenseDataset {
         if !self.name.to_uppercase().contains("DISP") {
             return;
         }
-        let find = |names: &[&str]| {
-            self.names.iter().position(|n| names.contains(&n.to_uppercase().as_str()))
-        };
+        let find = |names: &[&str]| self.names.iter().position(|n| names.contains(&n.to_uppercase().as_str()));
         let Some(all) = find(&["ALL"]) else { return };
         if !self.columns[all].is_empty() {
             return;

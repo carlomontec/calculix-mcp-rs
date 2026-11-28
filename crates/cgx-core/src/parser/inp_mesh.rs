@@ -9,8 +9,8 @@
 //! Problems in individual data lines never abort the read; they are collected in
 //! [`InpMesh::warnings`].
 
-use crate::parser::inp_cards::{read_card_data, scan_cards, InpCard, ScanLimits};
 use crate::model::{dedup_keep_order, merge_set_into};
+use crate::parser::inp_cards::{read_card_data, scan_cards, InpCard, ScanLimits};
 use crate::{Element, ElementType, Result, Set, SetType};
 use std::collections::HashMap;
 use std::path::Path;
@@ -109,8 +109,7 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                 for (k, line) in data.iter().enumerate() {
                     let t = tokens(line);
                     let Some(id) = t.first().and_then(|s| s.parse::<u32>().ok()) else {
-                        mesh.warnings
-                            .push(format!("{loc}: bad node id in data line {}: '{}'", k + 1, line.trim()));
+                        mesh.warnings.push(format!("{loc}: bad node id in data line {}: '{}'", k + 1, line.trim()));
                         continue;
                     };
                     let mut c = [0.0f64; 3];
@@ -127,17 +126,13 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                         }
                     }
                     if !ok {
-                        mesh.warnings.push(format!(
-                            "{loc}: non-numeric coordinate for node {id} (data line {})",
-                            k + 1
-                        ));
+                        mesh.warnings
+                            .push(format!("{loc}: non-numeric coordinate for node {id} (data line {})", k + 1));
                         continue;
                     }
                     if mesh.node_index.contains_key(&id) {
-                        mesh.warnings.push(format!(
-                            "{loc}: duplicate node id {id} (data line {}), keeping the first",
-                            k + 1
-                        ));
+                        mesh.warnings
+                            .push(format!("{loc}: duplicate node id {id} (data line {}), keeping the first", k + 1));
                     } else {
                         mesh.node_index.insert(id, mesh.nodes.len());
                         mesh.nodes.push(Node64 { id, x: c[0], y: c[1], z: c[2] });
@@ -175,8 +170,7 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                 for (k, text) in pending {
                     let t = tokens(&text);
                     let Some(id) = t.first().and_then(|s| s.parse::<u32>().ok()) else {
-                        mesh.warnings
-                            .push(format!("{loc}: bad element id in data line {}: '{}'", k + 1, text.trim()));
+                        mesh.warnings.push(format!("{loc}: bad element id in data line {}: '{}'", k + 1, text.trim()));
                         continue;
                     };
                     let mut nodes = Vec::with_capacity(t.len().saturating_sub(1));
@@ -191,10 +185,7 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                         }
                     }
                     if !ok {
-                        mesh.warnings.push(format!(
-                            "{loc}: non-numeric node in element {id} (data line {})",
-                            k + 1
-                        ));
+                        mesh.warnings.push(format!("{loc}: non-numeric node in element {id} (data line {})", k + 1));
                         continue;
                     }
                     if expected > 0 && nodes.len() != expected {
@@ -204,10 +195,8 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                         ));
                     }
                     if mesh.element_index.contains_key(&id) {
-                        mesh.warnings.push(format!(
-                            "{loc}: duplicate element id {id} (data line {}), keeping the first",
-                            k + 1
-                        ));
+                        mesh.warnings
+                            .push(format!("{loc}: duplicate element id {id} (data line {}), keeping the first", k + 1));
                         continue;
                     }
                     mesh.element_index.insert(id, mesh.elements.len());
@@ -242,8 +231,7 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                         let last = nums[1].unwrap();
                         let inc = nums.get(2).copied().flatten().unwrap_or(1);
                         if inc == 0 {
-                            mesh.warnings
-                                .push(format!("{loc}: zero increment in GENERATE (data line {})", k + 1));
+                            mesh.warnings.push(format!("{loc}: zero increment in GENERATE (data line {})", k + 1));
                             continue;
                         }
                         let mut v = first;
@@ -301,10 +289,8 @@ pub fn read_inp_mesh(root: &Path) -> Result<InpMesh> {
                         continue;
                     }
                     let label = t[1].to_uppercase();
-                    let face = label
-                        .strip_prefix('S')
-                        .and_then(|d| d.parse::<u8>().ok())
-                        .filter(|f| (1..=6).contains(f));
+                    let face =
+                        label.strip_prefix('S').and_then(|d| d.parse::<u8>().ok()).filter(|f| (1..=6).contains(f));
                     let Some(face) = face else {
                         mesh.warnings.push(format!(
                             "{loc}: unsupported face label '{}' in surface {name} (data line {})",

@@ -46,10 +46,8 @@ fn with_params(mut p: Vec<u8>, block: Vec<u8>) -> Vec<u8> {
 }
 
 const DISP: [(&str, i32); 4] = [("D1", 0), ("D2", 0), ("D3", 0), ("ALL", 1)];
-const STRESS: [(&str, i32); 6] =
-    [("SXX", 0), ("SYY", 0), ("SZZ", 0), ("SXY", 0), ("SYZ", 0), ("SZX", 0)];
-const PDISP: [(&str, i32); 6] =
-    [("MAG1", 0), ("MAG2", 0), ("MAG3", 0), ("PHA1", 0), ("PHA2", 0), ("PHA3", 0)];
+const STRESS: [(&str, i32); 6] = [("SXX", 0), ("SYY", 0), ("SZZ", 0), ("SXY", 0), ("SYZ", 0), ("SZX", 0)];
+const PDISP: [(&str, i32); 6] = [("MAG1", 0), ("MAG2", 0), ("MAG3", 0), ("PHA1", 0), ("PHA2", 0), ("PHA3", 0)];
 
 /// Deterministic pseudo-data: value of component `c` at node `nid` in step `step`.
 fn sample(nid: u32, c: usize, step: u32) -> f32 {
@@ -137,7 +135,15 @@ fn assert_equivalent(index: &FrdIndex, model: &FrdModel, filter: Option<&HashSet
                 assert_eq!(comp.values.len(), unique.len(), "{}:{} node count", ds.name, comp.name);
                 for (i, nid) in dense.node_ids.iter().enumerate() {
                     let expected = comp.values[nid];
-                    assert!(same(col[i], expected), "{}:{} node {}: {} vs {}", ds.name, comp.name, nid, col[i], expected);
+                    assert!(
+                        same(col[i], expected),
+                        "{}:{} node {}: {} vs {}",
+                        ds.name,
+                        comp.name,
+                        nid,
+                        col[i],
+                        expected
+                    );
                 }
             }
         }
@@ -153,7 +159,10 @@ fn assert_equivalent(index: &FrdIndex, model: &FrdModel, filter: Option<&HashSet
     let (new_s, old_s) = (index.stress_history(filter), real_only.compute_stress_history(filter));
     assert_eq!(new_s.len(), old_s.len(), "stress history length");
     for (a, b) in new_s.iter().zip(&old_s) {
-        assert_eq!((a.step_number, a.increment_number, a.node_count), (b.step_number, b.increment_number, b.node_count));
+        assert_eq!(
+            (a.step_number, a.increment_number, a.node_count),
+            (b.step_number, b.increment_number, b.node_count)
+        );
         assert!(same(a.value, b.value));
         // Values must match exactly. Node ids may differ only on exact ties.
         assert!(same(a.max_von_mises.0, b.max_von_mises.0));
@@ -230,10 +239,8 @@ fn binary_f32_and_f64_match_full_parser() {
 fn binary_payload_containing_newlines_and_markers_is_skipped_by_length() {
     // Node ids whose little-endian bytes contain '\n' (10) and spell " -3 " / " -4 ".
     let tricky = [10u32, 0x0A0A_0A0A, u32::from_le_bytes(*b" -3 "), u32::from_le_bytes(*b" -4 "), 7];
-    let blocks = vec![
-        binary_block("STRESS", &STRESS, &tricky, 1, false),
-        binary_block("DISP", &DISP, &tricky, 1, false),
-    ];
+    let blocks =
+        vec![binary_block("STRESS", &STRESS, &tricky, 1, false), binary_block("DISP", &DISP, &tricky, 1, false)];
     let index = FrdIndex::from_bytes(file(blocks)).expect("index");
     assert_eq!(index.entries().len(), 2);
     assert_eq!(index.entries()[1].name, "DISP");
@@ -264,19 +271,16 @@ fn derived_all_component_is_vector_magnitude() {
     let index = FrdIndex::from_bytes(file(vec![ascii_block("DISP", &DISP, &[5, 6], 1, false)])).unwrap();
     let ds = index.load(0).unwrap();
     let all = ds.column(&["ALL"]).unwrap();
-    for i in 0..2 {
+    for (i, &a) in all.iter().enumerate().take(2) {
         let (x, y, z) = (ds.columns[0][i], ds.columns[1][i], ds.columns[2][i]);
-        assert_eq!(all[i], (x * x + y * y + z * z).sqrt());
+        assert_eq!(a, (x * x + y * y + z * z).sqrt());
     }
 }
 
 #[test]
 fn truncated_files_do_not_panic() {
     let n = nodes();
-    let good = file(vec![
-        ascii_block("DISP", &DISP, &n, 1, false),
-        binary_block("STRESS", &STRESS, &n, 1, false),
-    ]);
+    let good = file(vec![ascii_block("DISP", &DISP, &n, 1, false), binary_block("STRESS", &STRESS, &n, 1, false)]);
     // Cut inside the binary payload: a clean error.
     let cut = good.len() - 200;
     assert!(FrdIndex::from_bytes(good[..cut].to_vec()).is_err());
@@ -418,7 +422,10 @@ fn cyclic_modal_file_metadata() {
     }
 
     let stress = index.stress_history(None);
-    assert_eq!(stress.iter().map(|s| s.step_number).collect::<Vec<_>>(), steps.iter().map(|s| s.step_number).collect::<Vec<_>>());
+    assert_eq!(
+        stress.iter().map(|s| s.step_number).collect::<Vec<_>>(),
+        steps.iter().map(|s| s.step_number).collect::<Vec<_>>()
+    );
     // DISP only in the static step; the modal steps have PDISP.
     assert_eq!(index.disp_history(None).len(), 1);
     let pdisp = steps[1].entries.iter().copied().find(|&e| index.entries()[e].name == "PDISP").expect("PDISP");
@@ -443,17 +450,28 @@ fn bench_lazy() {
     let (s, d) = (index.stress_history(None), index.disp_history(None));
     println!(
         "LAZY  {}: open {:.2?}, open + histories {:.2?} ({} datasets, {} stress, {} disp rows)",
-        path, t_open, t.elapsed(), index.entries().len(), s.len(), d.len()
+        path,
+        t_open,
+        t.elapsed(),
+        index.entries().len(),
+        s.len(),
+        d.len()
     );
     let payload: usize = index.entries().iter().map(|e| e.payload.len()).sum();
     println!(
         "      {} nodes, {} elements, result payload {:.1} MB",
-        index.mesh().nodes.len(), index.mesh().elements.len(), payload as f64 / 1e6
+        index.mesh().nodes.len(),
+        index.mesh().elements.len(),
+        payload as f64 / 1e6
     );
     for e in index.entries() {
         println!(
             "      step {:>4} value {:<12} {:<8} fmt {} nodes {:>8} comps {:?}",
-            e.step_number, e.value, e.name, e.format, e.node_count,
+            e.step_number,
+            e.value,
+            e.name,
+            e.format,
+            e.node_count,
             e.components.iter().map(|c| c.0.as_str()).collect::<Vec<_>>()
         );
     }
@@ -469,6 +487,10 @@ fn bench_full() {
     let (s, d) = (model.compute_stress_history(None), model.compute_disp_history(None));
     println!(
         "FULL  {}: parse {:.2?}, parse + histories {:.2?} ({} stress, {} disp rows)",
-        path, t_parse, t.elapsed(), s.len(), d.len()
+        path,
+        t_parse,
+        t.elapsed(),
+        s.len(),
+        d.len()
     );
 }

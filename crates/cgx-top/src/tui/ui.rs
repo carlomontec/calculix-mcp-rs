@@ -18,10 +18,10 @@ pub fn draw(f: &mut Frame, app: &AppState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // Header
-            Constraint::Min(8),    // Body (Steps + Details)
+            Constraint::Length(3),  // Header
+            Constraint::Min(8),     // Body (Steps + Details)
             Constraint::Length(10), // Bottom Chart
-            Constraint::Length(1), // Footer
+            Constraint::Length(1),  // Footer
         ])
         .split(size);
 
@@ -56,7 +56,10 @@ fn render_header(f: &mut Frame, app: &AppState, area: Rect) {
         Span::styled(format!("Elements: {} ", app.model.elements.len()), Style::default().fg(Color::Green)),
         Span::styled(format!("Steps: {} ", app.model.steps.len()), Style::default().fg(Color::Yellow)),
         Span::styled("│ Set: ", Style::default().fg(Color::DarkGray)),
-        Span::styled(format!("[{}] ", active_set_name), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("[{}] ", active_set_name),
+            Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(format!("({}) ", node_count_str), Style::default().fg(Color::DarkGray)),
     ]);
 
@@ -99,10 +102,7 @@ fn render_steps_list(f: &mut Frame, app: &AppState, area: Rect) {
             };
 
             let style = if is_selected {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
@@ -131,32 +131,54 @@ fn render_step_details(f: &mut Frame, app: &AppState, area: Rect) {
     if let Some(detail) = step_detail {
         // Step Banner
         let mut banner_spans = vec![
-            Span::styled(format!("Step {} ", detail.step_number), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("Step {} ", detail.step_number),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ),
             Span::styled(format!("│ Incr {} ", detail.increment_number), Style::default().fg(Color::White)),
-            Span::styled(format!("│ Value: {:.6e} ", detail.value), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("│ Value: {:.6e} ", detail.value),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
         ];
         if !detail.description.is_empty() {
-            banner_spans.push(Span::styled(format!("│ {} ", detail.description), Style::default().fg(Color::LightCyan)));
+            banner_spans
+                .push(Span::styled(format!("│ {} ", detail.description), Style::default().fg(Color::LightCyan)));
         }
         banner_spans.extend(vec![
-            Span::styled(format!("│ Set: [{}] ", active_set_name), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-            Span::styled(format!("({} nodes)  ◄ A/D cycle (0=ALL) ►", detail.filtered_nodes_count), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("│ Set: [{}] ", active_set_name),
+                Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("({} nodes)  ◄ A/D cycle (0=ALL) ►", detail.filtered_nodes_count),
+                Style::default().fg(Color::DarkGray),
+            ),
         ]);
         lines.push(Line::from(banner_spans));
         lines.push(Line::from("─".repeat(area.width.saturating_sub(2) as usize)));
 
         // Displacement section
-        if detail.has_disp && (app.field_view == ActiveFieldView::Auto || app.field_view == ActiveFieldView::Displacement) {
+        if detail.has_disp
+            && (app.field_view == ActiveFieldView::Auto || app.field_view == ActiveFieldView::Displacement)
+        {
             lines.push(Line::from(vec![
                 Span::styled("● NODAL DISPLACEMENT ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::styled(format!("(Field: DISP)"), Style::default().fg(Color::DarkGray)),
+                Span::styled("(Field: DISP)".to_string(), Style::default().fg(Color::DarkGray)),
             ]));
 
             if let Some((max_val, max_node)) = detail.max_disp {
-                let min_str = detail.min_disp.map(|(v, _)| format!("{:.4e}", v)).unwrap_or_else(|| "0.00e0".to_string());
+                let min_str =
+                    detail.min_disp.map(|(v, _)| format!("{:.4e}", v)).unwrap_or_else(|| "0.00e0".to_string());
                 lines.push(Line::from(vec![
-                    Span::styled("   Peak Magnitude (ALL): ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                    Span::styled(format!("{:.6e}", max_val), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        "   Peak Magnitude (ALL): ",
+                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{:.6e}", max_val),
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(format!(" at Node #{}", max_node), Style::default().fg(Color::LightCyan)),
                     Span::styled(format!("  (Min: {})", min_str), Style::default().fg(Color::DarkGray)),
                 ]));
@@ -165,8 +187,14 @@ fn render_step_details(f: &mut Frame, app: &AppState, area: Rect) {
             for (comp, min_v, min_n, max_v, max_n) in &detail.disp_comps {
                 lines.push(Line::from(vec![
                     Span::styled(format!("   {:<5} ", comp), Style::default().fg(Color::LightBlue)),
-                    Span::styled(format!("min: {:<12.4e} (Node #{:<5})", min_v, min_n), Style::default().fg(Color::Gray)),
-                    Span::styled(format!("  │  max: {:<12.4e} (Node #{})", max_v, max_n), Style::default().fg(Color::White)),
+                    Span::styled(
+                        format!("min: {:<12.4e} (Node #{:<5})", min_v, min_n),
+                        Style::default().fg(Color::Gray),
+                    ),
+                    Span::styled(
+                        format!("  │  max: {:<12.4e} (Node #{})", max_v, max_n),
+                        Style::default().fg(Color::White),
+                    ),
                 ]));
             }
             lines.push(Line::default());
@@ -175,34 +203,48 @@ fn render_step_details(f: &mut Frame, app: &AppState, area: Rect) {
         // Stress section
         if detail.has_stress && (app.field_view == ActiveFieldView::Auto || app.field_view == ActiveFieldView::Stress) {
             lines.push(Line::from(vec![
-                Span::styled("● CAUCHY STRESS & INVARIANTS ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                Span::styled(format!("(Field: STRESS)"), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "● CAUCHY STRESS & INVARIANTS ",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("(Field: STRESS)".to_string(), Style::default().fg(Color::DarkGray)),
             ]));
 
             if let Some((vm_max, vm_node)) = detail.max_von_mises {
                 lines.push(Line::from(vec![
                     Span::styled("   von Mises: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                    Span::styled(format!("{:.6e}", vm_max), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        format!("{:.6e}", vm_max),
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(format!(" at Node #{}", vm_node), Style::default().fg(Color::LightCyan)),
                 ]));
             }
 
             if let (Some((s1_max, s1_node)), Some((s3_min, s3_node))) = (detail.max_s1, detail.min_s3) {
-                lines.push(Line::from(vec![
-                    Span::styled(format!("   S1 (Max Principal): {:<12.4e} (#{})  │  S3 (Min Principal): {:<12.4e} (#{})", s1_max, s1_node, s3_min, s3_node), Style::default().fg(Color::Gray)),
-                ]));
+                lines.push(Line::from(vec![Span::styled(
+                    format!(
+                        "   S1 (Max Principal): {:<12.4e} (#{})  │  S3 (Min Principal): {:<12.4e} (#{})",
+                        s1_max, s1_node, s3_min, s3_node
+                    ),
+                    Style::default().fg(Color::Gray),
+                )]));
             }
 
             if let Some((tresca_max, tr_node)) = detail.max_tresca {
-                lines.push(Line::from(vec![
-                    Span::styled(format!("   Tresca Max Shear:   {:<12.4e} (Node #{})", tresca_max, tr_node), Style::default().fg(Color::Gray)),
-                ]));
+                lines.push(Line::from(vec![Span::styled(
+                    format!("   Tresca Max Shear:   {:<12.4e} (Node #{})", tresca_max, tr_node),
+                    Style::default().fg(Color::Gray),
+                )]));
             }
 
             // Component stresses
-            let comp_strs: Vec<String> = detail.stress_comps.iter().take(6).map(|(name, min_v, _, max_v, _)| {
-                format!("{}: [{:.2e} .. {:.2e}]", name, min_v, max_v)
-            }).collect();
+            let comp_strs: Vec<String> = detail
+                .stress_comps
+                .iter()
+                .take(6)
+                .map(|(name, min_v, _, max_v, _)| format!("{}: [{:.2e} .. {:.2e}]", name, min_v, max_v))
+                .collect();
             if !comp_strs.is_empty() {
                 lines.push(Line::from(vec![
                     Span::styled("   Components: ", Style::default().fg(Color::DarkGray)),
@@ -214,13 +256,17 @@ fn render_step_details(f: &mut Frame, app: &AppState, area: Rect) {
 
         // Other fields
         for (field_name, comps) in &detail.other_fields {
-            lines.push(Line::from(vec![
-                Span::styled(format!("● FIELD: {} ", field_name), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                format!("● FIELD: {} ", field_name),
+                Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+            )]));
             for (comp, min_v, min_n, max_v, max_n) in comps {
                 lines.push(Line::from(vec![
                     Span::styled(format!("   {:<8} ", comp), Style::default().fg(Color::LightMagenta)),
-                    Span::styled(format!("min: {:<12.4e} (#{})  │  max: {:<12.4e} (#{})", min_v, min_n, max_v, max_n), Style::default().fg(Color::Gray)),
+                    Span::styled(
+                        format!("min: {:<12.4e} (#{})  │  max: {:<12.4e} (#{})", min_v, min_n, max_v, max_n),
+                        Style::default().fg(Color::Gray),
+                    ),
                 ]));
             }
             lines.push(Line::default());
@@ -244,24 +290,10 @@ fn render_chart(f: &mut Frame, app: &AppState, area: Rect) {
     let plot_cols = (area.width.saturating_sub(18) as usize).max(10);
     let plot_rows = (area.height.saturating_sub(3) as usize).max(4);
 
-    let first_lbl = if !app.model.steps.is_empty() {
-        format!("Step 1")
-    } else {
-        "".to_string()
-    };
-    let last_lbl = if !app.model.steps.is_empty() {
-        format!("Step {}", app.model.steps.len())
-    } else {
-        "".to_string()
-    };
+    let first_lbl = if !app.model.steps.is_empty() { "Step 1".to_string() } else { "".to_string() };
+    let last_lbl = if !app.model.steps.is_empty() { format!("Step {}", app.model.steps.len()) } else { "".to_string() };
 
-    let plot_lines = render_ascii_plot(
-        &app.chart_values,
-        plot_cols,
-        plot_rows,
-        Some(&first_lbl),
-        Some(&last_lbl),
-    );
+    let plot_lines = render_ascii_plot(&app.chart_values, plot_cols, plot_rows, Some(&first_lbl), Some(&last_lbl));
 
     let mut lines = Vec::new();
     for l in plot_lines {
@@ -273,12 +305,14 @@ fn render_chart(f: &mut Frame, app: &AppState, area: Rect) {
         let n = app.chart_values.len();
         let col_offset = ((app.selected_step_idx as f64 / (n - 1) as f64) * (plot_cols - 1) as f64).round() as usize;
         let left_pad = 13 + col_offset;
-        lines.push(Line::from(vec![
-            Span::styled(format!("{:>left_pad$}▲ (Step {})", "", app.selected_step_idx + 1), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            format!("{:>left_pad$}▲ (Step {})", "", app.selected_step_idx + 1),
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        )]));
     }
 
-    let title = format!(" {} History across Steps [Filter: {}] ", app.chart_label, app.available_sets[app.active_set_idx]);
+    let title =
+        format!(" {} History across Steps [Filter: {}] ", app.chart_label, app.available_sets[app.active_set_idx]);
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -369,7 +403,10 @@ fn render_help_modal(f: &mut Frame, area: Rect) {
     f.render_widget(Clear, modal_area);
 
     let help_text = vec![
-        Line::from(vec![Span::styled("KEYBOARD SHORTCUTS & NAVIGATION", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "KEYBOARD SHORTCUTS & NAVIGATION",
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        )]),
         Line::from("─".repeat(50)),
         Line::from(vec![
             Span::styled("  W  or  ↑         ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),

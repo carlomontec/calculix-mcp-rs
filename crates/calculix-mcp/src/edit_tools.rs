@@ -236,7 +236,13 @@ fn diff_of(roots: &Roots, plan: &EditPlan) -> (String, usize, bool) {
     let all: String = plan
         .files
         .iter()
-        .map(|f| f.unified_diff(&format!("a/{}", roots.display(&f.original)), &format!("b/{}", roots.display(&f.path)), DIFF_CONTEXT))
+        .map(|f| {
+            f.unified_diff(
+                &format!("a/{}", roots.display(&f.original)),
+                &format!("b/{}", roots.display(&f.path)),
+                DIFF_CONTEXT,
+            )
+        })
         .collect();
     let lines: Vec<&str> = all.lines().collect();
     let total = lines.len();
@@ -250,7 +256,8 @@ fn diff_of(roots: &Roots, plan: &EditPlan) -> (String, usize, bool) {
 
 pub fn edit(roots: &Roots, p: InpEditIn) -> Result<InpEditOut, ToolError> {
     let deck = roots.existing(&p.path, &["inp"])?;
-    let default_out = deck.with_file_name(format!("{}_edit.inp", deck.file_stem().and_then(|s| s.to_str()).unwrap_or("deck")));
+    let default_out =
+        deck.with_file_name(format!("{}_edit.inp", deck.file_stem().and_then(|s| s.to_str()).unwrap_or("deck")));
     let output = match &p.output_path {
         Some(raw) => roots.creatable(raw, &["inp"])?,
         None => roots.creatable(&default_out.to_string_lossy(), &["inp"])?,
@@ -261,8 +268,11 @@ pub fn edit(roots: &Roots, p: InpEditIn) -> Result<InpEditOut, ToolError> {
     // Every file read or created must be inside the roots.
     for f in &plan.files {
         if !roots.contains(&f.original) {
-            return Err(ToolError::new("PATH_OUTSIDE_ROOTS", format!("{} is outside the allowed roots", f.original.display()))
-                .hint("Edit decks whose edited files are inside the server roots."));
+            return Err(ToolError::new(
+                "PATH_OUTSIDE_ROOTS",
+                format!("{} is outside the allowed roots", f.original.display()),
+            )
+            .hint("Edit decks whose edited files are inside the server roots."));
         }
         roots.creatable(&f.path.to_string_lossy(), &[])?;
     }
@@ -293,7 +303,11 @@ pub fn edit(roots: &Roots, p: InpEditIn) -> Result<InpEditOut, ToolError> {
         applied: plan
             .applied
             .iter()
-            .map(|a| format!("op {} {}: {}:{}  {}", a.op, a.kind, roots.display(&a.file), a.line, a.header).trim_end().to_string())
+            .map(|a| {
+                format!("op {} {}: {}:{}  {}", a.op, a.kind, roots.display(&a.file), a.line, a.header)
+                    .trim_end()
+                    .to_string()
+            })
             .collect(),
         diff,
         diff_lines,
@@ -360,8 +374,14 @@ mod tests {
         ]);
         let out = edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": ops}))).unwrap();
         assert!(out.written);
-        assert_eq!((out.files_written.len(), out.files_written[0].path.as_str(), out.files_written[0].role.as_str()), (1, "deck_edit.inp", "root"));
-        assert_eq!(out.files_written[0].bytes, std::fs::metadata(dir.join("root/deck_edit.inp")).unwrap().len() as usize);
+        assert_eq!(
+            (out.files_written.len(), out.files_written[0].path.as_str(), out.files_written[0].role.as_str()),
+            (1, "deck_edit.inp", "root")
+        );
+        assert_eq!(
+            out.files_written[0].bytes,
+            std::fs::metadata(dir.join("root/deck_edit.inp")).unwrap().len() as usize
+        );
         assert_eq!(out.applied.len(), 3);
         assert!(out.applied[0].starts_with("op 0 replace_data: deck.inp:8  *FREQUENCY"), "{:?}", out.applied);
         assert!(out.diff.starts_with("--- a/deck.inp\n+++ b/deck_edit.inp\n@@"), "{}", out.diff);
@@ -387,7 +407,11 @@ mod tests {
     fn dry_run_writes_nothing_and_matches_the_real_run() {
         let (dir, roots) = setup(DECK);
         let before = snapshot(&dir);
-        let req = |dry: bool| input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["12"]), {"op": "delete_card", "card": {"keyword": "BOUNDARY"}}], "dry_run": dry}));
+        let req = |dry: bool| {
+            input(
+                serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["12"]), {"op": "delete_card", "card": {"keyword": "BOUNDARY"}}], "dry_run": dry}),
+            )
+        };
         let dry = edit(&roots, req(true)).unwrap();
         assert!(!dry.written);
         assert_eq!(snapshot(&dir), before);
@@ -402,27 +426,39 @@ mod tests {
         let (_dir, roots) = setup(DECK);
         let lines: Vec<String> = (0..400).map(|i| format!("{i}")).collect();
         let refs: Vec<&str> = lines.iter().map(String::as_str).collect();
-        let out = edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&refs)], "dry_run": true}))).unwrap();
+        let out =
+            edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&refs)], "dry_run": true})))
+                .unwrap();
         assert!(out.diff_truncated);
         assert_eq!(out.diff.lines().count(), 201);
-        assert!(out.diff.lines().last().unwrap().starts_with("... diff truncated: "), "{}", out.diff.lines().last().unwrap());
+        assert!(
+            out.diff.lines().last().unwrap().starts_with("... diff truncated: "),
+            "{}",
+            out.diff.lines().last().unwrap()
+        );
         assert!(out.diff_lines > 400);
     }
 
     #[test]
     fn overwrite_is_refused_unless_requested() {
         let (dir, roots) = setup(DECK);
-        let req = |overwrite: bool| input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["12"])], "overwrite": overwrite}));
+        let req = |overwrite: bool| {
+            input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["12"])], "overwrite": overwrite}))
+        };
         edit(&roots, req(false)).unwrap();
         let e = edit(&roots, req(false)).unwrap_err();
         assert_eq!(e.code, "RESULTS_EXIST");
-        let dry = edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["12"])], "dry_run": true}))).unwrap_err();
+        let dry =
+            edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["12"])], "dry_run": true})))
+                .unwrap_err();
         assert_eq!(dry.code, "RESULTS_EXIST");
         std::fs::write(dir.join("root/deck_edit.inp"), "stale").unwrap();
         edit(&roots, req(true)).unwrap();
         assert!(std::fs::read_to_string(dir.join("root/deck_edit.inp")).unwrap().contains("12"));
         // The deck itself can never be the output.
-        let same = input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["1"])], "output_path": "deck.inp", "overwrite": true}));
+        let same = input(
+            serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["1"])], "output_path": "deck.inp", "overwrite": true}),
+        );
         assert_eq!(edit(&roots, same).unwrap_err().code, "INVALID_ARGUMENT");
         assert_eq!(std::fs::read_to_string(dir.join("root/deck.inp")).unwrap(), DECK);
     }
@@ -431,12 +467,21 @@ mod tests {
     fn paths_outside_the_roots_are_rejected() {
         let (dir, roots) = setup(DECK);
         std::fs::write(dir.join("outside.inp"), DECK).unwrap();
-        let e = edit(&roots, input(serde_json::json!({"path": "../outside.inp", "ops": [freq_op(&["1"])]}))).unwrap_err();
+        let e =
+            edit(&roots, input(serde_json::json!({"path": "../outside.inp", "ops": [freq_op(&["1"])]}))).unwrap_err();
         assert_eq!(e.code, "PATH_OUTSIDE_ROOTS");
-        let e = edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["1"])], "output_path": "../x.inp"}))).unwrap_err();
+        let e = edit(
+            &roots,
+            input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["1"])], "output_path": "../x.inp"})),
+        )
+        .unwrap_err();
         assert_eq!(e.code, "PATH_OUTSIDE_ROOTS");
         assert!(!dir.join("x.inp").exists());
-        let e = edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["1"])], "output_path": "o.txt"}))).unwrap_err();
+        let e = edit(
+            &roots,
+            input(serde_json::json!({"path": "deck.inp", "ops": [freq_op(&["1"])], "output_path": "o.txt"})),
+        )
+        .unwrap_err();
         assert_eq!(e.code, "BAD_EXTENSION");
     }
 
@@ -444,7 +489,12 @@ mod tests {
     fn card_errors_carry_candidates() {
         let (_dir, roots) = setup("*NODE\n1,0,0,0\n*BOUNDARY\n1,1,6\n*BOUNDARY\n2,1,6\n*STEP\n*STATIC\n*END STEP\n");
         let run = |card: serde_json::Value| {
-            edit(&roots, input(serde_json::json!({"path": "deck.inp", "ops": [{"op": "delete_card", "card": card}], "dry_run": true})))
+            edit(
+                &roots,
+                input(
+                    serde_json::json!({"path": "deck.inp", "ops": [{"op": "delete_card", "card": card}], "dry_run": true}),
+                ),
+            )
         };
         let e = run(serde_json::json!({"keyword": "boundary"})).unwrap_err();
         assert_eq!(e.code, "AMBIGUOUS_CARD");
@@ -458,10 +508,13 @@ mod tests {
     #[test]
     fn set_param_value_may_be_a_number_and_must_be_present() {
         let (_dir, roots) = setup(DECK);
-        let ok = input(serde_json::json!({"path": "deck.inp", "dry_run": true, "ops": [{"op": "set_param", "card": {"keyword": "STEP"}, "param": "INC", "value": 50}]}));
+        let ok = input(
+            serde_json::json!({"path": "deck.inp", "dry_run": true, "ops": [{"op": "set_param", "card": {"keyword": "STEP"}, "param": "INC", "value": 50}]}),
+        );
         assert!(edit(&roots, ok).unwrap().diff.contains("+*STEP, INC=50\n"));
-        let missing: Result<InpEditIn, _> =
-            serde_json::from_value(serde_json::json!({"path": "d.inp", "ops": [{"op": "set_param", "card": {"keyword": "STEP"}, "param": "INC"}]}));
+        let missing: Result<InpEditIn, _> = serde_json::from_value(
+            serde_json::json!({"path": "d.inp", "ops": [{"op": "set_param", "card": {"keyword": "STEP"}, "param": "INC"}]}),
+        );
         assert!(missing.is_err(), "value must be given (null removes)");
     }
 
@@ -476,11 +529,8 @@ mod tests {
         let (dir, roots) = setup("");
         std::fs::copy(src, dir.join("root/beam_modal.inp")).unwrap();
         let original = std::fs::read(dir.join("root/beam_modal.inp")).unwrap();
-        let out = edit(
-            &roots,
-            input(serde_json::json!({"path": "beam_modal.inp", "ops": [freq_op(&["12"])]})),
-        )
-        .unwrap();
+        let out =
+            edit(&roots, input(serde_json::json!({"path": "beam_modal.inp", "ops": [freq_op(&["12"])]}))).unwrap();
         eprintln!("{}", out.diff);
         assert!(out.diff.contains("-5\n+12\n"), "{}", out.diff);
         assert_eq!(std::fs::read(dir.join("root/beam_modal.inp")).unwrap(), original);
@@ -491,13 +541,15 @@ mod tests {
         let ccx = &crate::paths::test_data("ccx/CalculiX-CrunchiX-MultiSolver/build_mumps/CalculiX");
         if ccx.exists() && std::env::var_os("INP_EDIT_SOLVE").is_some() {
             let work = dir.join("root");
-            let status = std::process::Command::new(ccx).args(["-j", "beam_modal_edit"]).current_dir(&work).output().unwrap();
+            let status =
+                std::process::Command::new(ccx).args(["-j", "beam_modal_edit"]).current_dir(&work).output().unwrap();
             assert!(status.status.success(), "{}", String::from_utf8_lossy(&status.stderr));
             let dat = std::fs::read_to_string(work.join("beam_modal_edit.dat")).unwrap();
             let frd = std::fs::read(work.join("beam_modal_edit.frd")).unwrap();
             // Each mode is written as several field blocks (DISP, STRESS, ...) with the same 100CL header.
             let text = String::from_utf8_lossy(&frd);
-            let modes = text.lines().filter(|l| l.starts_with("  100CL")).collect::<std::collections::BTreeSet<_>>().len();
+            let modes =
+                text.lines().filter(|l| l.starts_with("  100CL")).collect::<std::collections::BTreeSet<_>>().len();
             eprintln!("solved: {} modes in .frd, .dat has {} lines", modes, dat.lines().count());
             assert_eq!(modes, 12);
         }
@@ -520,7 +572,12 @@ mod tests {
             {"op": "append_step", "text": "*STEP\n*STATIC\n*END STEP"},
         ]);
         let out = edit(&roots, input(serde_json::json!({"path": "lavffcyc.inp", "ops": ops}))).unwrap();
-        eprintln!("{}\n{:?}\n{:?}", out.diff, out.files_written.iter().map(|f| (&f.path, f.bytes)).collect::<Vec<_>>(), out.check.step_plan);
+        eprintln!(
+            "{}\n{:?}\n{:?}",
+            out.diff,
+            out.files_written.iter().map(|f| (&f.path, f.bytes)).collect::<Vec<_>>(),
+            out.check.step_plan
+        );
         assert_eq!(out.files_written.len(), 1, "include files are referenced, not copied");
         assert!(!work.join("all_edit.msh").exists());
         assert!(out.check.ok && out.check.flags_before == out.check.flags_after);

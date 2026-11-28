@@ -30,14 +30,8 @@ pub struct Face {
 // S6 = 4-1-5-8; tet S1 = 1-3-2, S2 = 1-2-4, S3 = 2-3-4, S4 = 1-4-3; wedge S1 = 1-3-2,
 // S2 = 4-5-6, S3 = 1-2-5-4, S4 = 2-3-6-5, S5 = 4-6-3-1. The node sets equal the reference
 // list; only the traversal direction differs (reversed for S1, S2 and the tet/wedge faces).
-const HEX_FACES: [&[usize]; 6] = [
-    &[3, 2, 1, 0],
-    &[4, 5, 6, 7],
-    &[0, 1, 5, 4],
-    &[1, 2, 6, 5],
-    &[2, 3, 7, 6],
-    &[3, 0, 4, 7],
-];
+const HEX_FACES: [&[usize]; 6] =
+    [&[3, 2, 1, 0], &[4, 5, 6, 7], &[0, 1, 5, 4], &[1, 2, 6, 5], &[2, 3, 7, 6], &[3, 0, 4, 7]];
 const TET_FACES: [&[usize]; 4] = [&[0, 2, 1], &[0, 1, 3], &[1, 2, 3], &[0, 3, 2]];
 const WEDGE_FACES: [&[usize]; 5] = [&[0, 2, 1], &[3, 4, 5], &[0, 1, 4, 3], &[1, 2, 5, 4], &[3, 5, 2, 0]];
 
@@ -61,7 +55,8 @@ const HEX_FACES_FULL: [&[usize]; 6] = [
     &[2, 3, 7, 6, 10, 19, 14, 18],
     &[3, 0, 4, 7, 11, 16, 15, 19],
 ];
-const TET_FACES_FULL: [&[usize]; 4] = [&[0, 2, 1, 6, 5, 4], &[0, 1, 3, 4, 8, 7], &[1, 2, 3, 5, 9, 8], &[0, 3, 2, 7, 9, 6]];
+const TET_FACES_FULL: [&[usize]; 4] =
+    [&[0, 2, 1, 6, 5, 4], &[0, 1, 3, 4, 8, 7], &[1, 2, 3, 5, 9, 8], &[0, 3, 2, 7, 9, 6]];
 const WEDGE_FACES_FULL: [&[usize]; 5] = [
     &[0, 2, 1, 8, 7, 6],
     &[3, 4, 5, 9, 10, 11],
@@ -213,17 +208,16 @@ pub fn exterior_faces(mesh: &InpMesh) -> Vec<Face> {
 /// reference unknown elements, non-solid elements or missing nodes are skipped.
 pub fn faces_of_surface(mesh: &InpMesh, name: &str) -> Option<Vec<Face>> {
     let entries = mesh.surfaces.get(&name.to_uppercase())?;
-    Some(
-        entries
-            .iter()
-            .filter_map(|&(eid, f)| build_face(mesh, *mesh.element_index.get(&eid)?, f))
-            .collect(),
-    )
+    Some(entries.iter().filter_map(|&(eid, f)| build_face(mesh, *mesh.element_index.get(&eid)?, f)).collect())
 }
 
 fn unit(v: V3) -> V3 {
     let l = norm(v);
-    if l > 0.0 { [v[0] / l, v[1] / l, v[2] / l] } else { v }
+    if l > 0.0 {
+        [v[0] / l, v[1] / l, v[2] / l]
+    } else {
+        v
+    }
 }
 
 fn cos_limit(max_angle_deg: f64) -> f64 {

@@ -30,12 +30,7 @@ impl Roots {
 
     /// Path shown to the model: relative to the root that contains it.
     pub fn display(&self, path: &Path) -> String {
-        self.0
-            .iter()
-            .find_map(|r| path.strip_prefix(r).ok())
-            .unwrap_or(path)
-            .display()
-            .to_string()
+        self.0.iter().find_map(|r| path.strip_prefix(r).ok()).unwrap_or(path).display().to_string()
     }
 
     /// Whether an existing path resolves inside an allowed root.
@@ -53,8 +48,11 @@ impl Roots {
 
     fn confine(&self, canonical: PathBuf, exts: &[&str]) -> Result<PathBuf, ToolError> {
         if !self.0.iter().any(|r| canonical.starts_with(r)) {
-            return Err(ToolError::new("PATH_OUTSIDE_ROOTS", format!("{} is outside the allowed roots", canonical.display()))
-                .valid(self.0.iter().map(|r| r.display().to_string()).collect()));
+            return Err(ToolError::new(
+                "PATH_OUTSIDE_ROOTS",
+                format!("{} is outside the allowed roots", canonical.display()),
+            )
+            .valid(self.0.iter().map(|r| r.display().to_string()).collect()));
         }
         if !exts.is_empty() && !has_ext(&canonical, exts) {
             return Err(ToolError::new("BAD_EXTENSION", format!("expected a file ending in {}", exts.join(" or ")))
@@ -101,21 +99,57 @@ pub fn home_dir() -> Option<PathBuf> {
 /// Folders that are never a models folder themselves (folders inside them may be).
 #[cfg(not(windows))]
 const SYSTEM_DIRS: &[&str] = &[
-    "/Users", "/home", "/root", "/tmp", "/var", "/var/tmp", "/private", "/private/var", "/private/tmp", "/Volumes",
-    "/mnt", "/media", "/opt", "/srv", "/run", "/snap", "/Applications", "/Library", "/Network", "/cores",
+    "/Users",
+    "/home",
+    "/root",
+    "/tmp",
+    "/var",
+    "/var/tmp",
+    "/private",
+    "/private/var",
+    "/private/tmp",
+    "/Volumes",
+    "/mnt",
+    "/media",
+    "/opt",
+    "/srv",
+    "/run",
+    "/snap",
+    "/Applications",
+    "/Library",
+    "/Network",
+    "/cores",
 ];
 /// Folders that are refused together with everything inside them.
 #[cfg(not(windows))]
 const SYSTEM_TREES: &[&str] = &[
-    "/System", "/bin", "/sbin", "/usr", "/etc", "/private/etc", "/dev", "/proc", "/sys", "/boot", "/lib", "/lib32",
-    "/lib64", "/libx32",
+    "/System",
+    "/bin",
+    "/sbin",
+    "/usr",
+    "/etc",
+    "/private/etc",
+    "/dev",
+    "/proc",
+    "/sys",
+    "/boot",
+    "/lib",
+    "/lib32",
+    "/lib64",
+    "/libx32",
 ];
 /// Windows: compared case-insensitively with the path stripped of its drive (`C:`).
 #[cfg(windows)]
 const SYSTEM_DIRS: &[&str] = &[r"\Users", r"\Users\Public", r"\Users\Default"];
 #[cfg(windows)]
-const SYSTEM_TREES: &[&str] =
-    &[r"\Windows", r"\Program Files", r"\Program Files (x86)", r"\ProgramData", r"\$Recycle.Bin", r"\System Volume Information"];
+const SYSTEM_TREES: &[&str] = &[
+    r"\Windows",
+    r"\Program Files",
+    r"\Program Files (x86)",
+    r"\ProgramData",
+    r"\$Recycle.Bin",
+    r"\System Volume Information",
+];
 
 /// A comparable spelling of a path: no `\\?\` prefix, no trailing separator; on Windows without
 /// the drive letter, with `\` separators and in lower case. Lower case on macOS too, whose
@@ -162,9 +196,7 @@ pub fn refusal(path: &Path, home: Option<&Path>) -> Option<&'static str> {
 }
 
 fn has_ext(path: &Path, exts: &[&str]) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| exts.iter().any(|x| x.eq_ignore_ascii_case(e)))
+    path.extension().and_then(|e| e.to_str()).is_some_and(|e| exts.iter().any(|x| x.eq_ignore_ascii_case(e)))
 }
 
 /// Files with an accepted extension next to `path`, sorted.
@@ -213,7 +245,10 @@ mod tests {
 
         assert!(roots.existing("a.frd", &["frd"]).is_ok());
         assert_eq!(roots.existing("../outside.frd", &["frd"]).unwrap_err().code, "PATH_OUTSIDE_ROOTS");
-        assert_eq!(roots.existing(dir.join("outside.frd").to_str().unwrap(), &["frd"]).unwrap_err().code, "PATH_OUTSIDE_ROOTS");
+        assert_eq!(
+            roots.existing(dir.join("outside.frd").to_str().unwrap(), &["frd"]).unwrap_err().code,
+            "PATH_OUTSIDE_ROOTS"
+        );
         assert_eq!(roots.existing("b.inp", &["frd"]).unwrap_err().code, "BAD_EXTENSION");
 
         let missing = roots.existing("nope.frd", &["frd"]).unwrap_err();

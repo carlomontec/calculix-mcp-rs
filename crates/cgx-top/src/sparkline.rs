@@ -16,8 +16,12 @@ pub fn render_sparkline(values: &[f32]) -> String {
 
     for &v in values {
         if v.is_finite() {
-            if v < min { min = v; }
-            if v > max { max = v; }
+            if v < min {
+                min = v;
+            }
+            if v > max {
+                max = v;
+            }
         }
     }
 

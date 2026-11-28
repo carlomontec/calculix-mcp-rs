@@ -82,7 +82,11 @@ fn group_bbox(mesh: &InpMesh, elements: &[u32]) -> (V3, V3) {
             }
         }
     }
-    if any { (lo, hi) } else { ([0.0; 3], [0.0; 3]) }
+    if any {
+        (lo, hi)
+    } else {
+        ([0.0; 3], [0.0; 3])
+    }
 }
 
 /// Split the elements of `mesh` into named groups. Every element belongs to exactly one
@@ -322,7 +326,8 @@ fn grouped_faces(mesh: &InpMesh, groups: &[ContactGroup], sel: &[usize]) -> (Vec
     let mut faces = Vec::new();
     let mut fg = Vec::new();
     // A group takes part if some other group can pair with it under the filter.
-    let active: Vec<bool> = (0..groups.len()).map(|g| (0..groups.len()).any(|h| h != g && allowed(sel, g, h))).collect();
+    let active: Vec<bool> =
+        (0..groups.len()).map(|g| (0..groups.len()).any(|h| h != g && allowed(sel, g, h))).collect();
     for f in exterior_faces(mesh) {
         let Some(&g) = owner.get(&f.element) else { continue };
         per_group[g] += 1;
@@ -340,7 +345,11 @@ fn median(mut v: Vec<f64>) -> f64 {
     }
     v.sort_by(f64::total_cmp);
     let n = v.len();
-    if n % 2 == 1 { v[n / 2] } else { 0.5 * (v[n / 2 - 1] + v[n / 2]) }
+    if n % 2 == 1 {
+        v[n / 2]
+    } else {
+        0.5 * (v[n / 2 - 1] + v[n / 2])
+    }
 }
 
 /// `(min face index, max face index)` -> (gap with the lower index tested onto the higher,
@@ -363,13 +372,17 @@ fn grid_search(
     cell: f64,
     budget: usize,
 ) -> Option<(usize, usize, Hits)> {
-    let key = |p: V3| -> [i64; 3] { [(p[0] / cell).floor() as i64, (p[1] / cell).floor() as i64, (p[2] / cell).floor() as i64] };
+    let key = |p: V3| -> [i64; 3] {
+        [(p[0] / cell).floor() as i64, (p[1] / cell).floor() as i64, (p[2] / cell).floor() as i64]
+    };
     let mut grid: HashMap<[i64; 3], Vec<u32>> = HashMap::new();
     for (j, g) in geos.iter().enumerate() {
         if !g.ok {
             continue;
         }
-        let r = gap_max + g.tol + (0..g.edges.len()).map(|k| dot(sub(g.edges[k].0, g.centroid), g.normal).abs()).fold(0.0, f64::max);
+        let r = gap_max
+            + g.tol
+            + (0..g.edges.len()).map(|k| dot(sub(g.edges[k].0, g.centroid), g.normal).abs()).fold(0.0, f64::max);
         let lo = key([g.lo[0] - r, g.lo[1] - r, g.lo[2] - r]);
         let hi = key([g.hi[0] + r, g.hi[1] + r, g.hi[2] + r]);
         for x in lo[0]..=hi[0] {
@@ -395,7 +408,9 @@ fn grid_search(
             }
             let b = &geos[j];
             // Exact box test (the cell is coarser than the box).
-            let r = gap_max + b.tol + (0..b.edges.len()).map(|k| dot(sub(b.edges[k].0, b.centroid), b.normal).abs()).fold(0.0, f64::max);
+            let r = gap_max
+                + b.tol
+                + (0..b.edges.len()).map(|k| dot(sub(b.edges[k].0, b.centroid), b.normal).abs()).fold(0.0, f64::max);
             if (0..3).any(|k| a.centroid[k] < b.lo[k] - r || a.centroid[k] > b.hi[k] + r) {
                 continue;
             }
@@ -409,7 +424,11 @@ fn grid_search(
             opp += 1;
             if let Some(d) = gap_onto(a, b, gap_max) {
                 let e = hits.entry((i.min(j), i.max(j))).or_insert((None, None));
-                if i < j { e.0 = Some(d) } else { e.1 = Some(d) }
+                if i < j {
+                    e.0 = Some(d)
+                } else {
+                    e.1 = Some(d)
+                }
             }
         }
     }
@@ -427,7 +446,11 @@ fn merged_gap(h: (Option<f64>, Option<f64>)) -> f64 {
 fn grid_cell(geos: &[Geo], faces: &[Face], gap_max: f64) -> f64 {
     let med = median(geos.iter().zip(faces).filter(|(g, _)| g.ok).map(|(_, f)| f.area.sqrt()).collect());
     let c = gap_max + med;
-    if c > 0.0 && c.is_finite() { c } else { 1.0 }
+    if c > 0.0 && c.is_finite() {
+        c
+    } else {
+        1.0
+    }
 }
 
 /// Find contact candidates between `groups` (from [`partition_groups`]).
@@ -436,7 +459,8 @@ pub fn find_contact_pairs(mesh: &InpMesh, groups: &[ContactGroup], opts: &Contac
     let geos: Vec<Geo> = faces.iter().map(|f| geo_of(mesh, f)).collect();
     let cell = grid_cell(&geos, &faces, opts.gap_max);
     let (near, opp, hits) =
-        grid_search(&geos, &fg, &opts.groups, opts.gap_max, cos_limit(opts.max_angle_deg), cell, usize::MAX).unwrap_or_default();
+        grid_search(&geos, &fg, &opts.groups, opts.gap_max, cos_limit(opts.max_angle_deg), cell, usize::MAX)
+            .unwrap_or_default();
     let face_pairs = hits.len();
 
     let mut by_groups: HashMap<(usize, usize), Vec<FacePair>> = HashMap::new();
@@ -475,8 +499,19 @@ pub fn find_contact_pairs(mesh: &InpMesh, groups: &[ContactGroup], opts: &Contac
             }
         })
         .collect();
-    pairs.sort_by(|x, y| y.overlap_area.total_cmp(&x.overlap_area).then(x.side_a.cmp(&y.side_a)).then(x.side_b.cmp(&y.side_b)));
-    ContactReport { faces, face_group: fg, faces_per_group, near_checks: near, opposing_checks: opp, face_pairs, pairs, cell_size: cell }
+    pairs.sort_by(|x, y| {
+        y.overlap_area.total_cmp(&x.overlap_area).then(x.side_a.cmp(&y.side_a)).then(x.side_b.cmp(&y.side_b))
+    });
+    ContactReport {
+        faces,
+        face_group: fg,
+        faces_per_group,
+        near_checks: near,
+        opposing_checks: opp,
+        face_pairs,
+        pairs,
+        cell_size: cell,
+    }
 }
 
 /// Reference O(n²) search with the same rule, for tests: distinct face pairs as
@@ -515,7 +550,11 @@ pub fn contact_face_pairs_brute_force(
 /// groups found by doubling the gap up to the model size: `(group a, group b, gap)`.
 /// `None` when no opposing faces are found, or the search would exceed about 20 million
 /// face tests.
-pub fn nearest_opposing_gap(mesh: &InpMesh, groups: &[ContactGroup], opts: &ContactSearch) -> Option<(usize, usize, f64)> {
+pub fn nearest_opposing_gap(
+    mesh: &InpMesh,
+    groups: &[ContactGroup],
+    opts: &ContactSearch,
+) -> Option<(usize, usize, f64)> {
     let (faces, fg, _) = grouped_faces(mesh, groups, &opts.groups);
     if faces.is_empty() {
         return None;

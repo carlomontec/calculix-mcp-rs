@@ -18,7 +18,8 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::watch;
 
-pub const NO_FOLDER_HINT: &str = "Ask the user which folder holds the models, then call models_folder with its absolute path.";
+pub const NO_FOLDER_HINT: &str =
+    "Ask the user which folder holds the models, then call models_folder with its absolute path.";
 
 /// Where the active models folder came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
@@ -124,7 +125,12 @@ pub fn file_uri_to_path(uri: &str) -> Option<PathBuf> {
 impl ModelsFolder {
     /// Resolve the startup folder from `--root` flags (`fixed`), `--allow` folders and the
     /// current directory. Missing `--root` or `--allow` folders are an error, as before.
-    pub fn new(fixed: Vec<PathBuf>, allow: Vec<PathBuf>, cwd: Option<PathBuf>, home: Option<PathBuf>) -> anyhow::Result<Self> {
+    pub fn new(
+        fixed: Vec<PathBuf>,
+        allow: Vec<PathBuf>,
+        cwd: Option<PathBuf>,
+        home: Option<PathBuf>,
+    ) -> anyhow::Result<Self> {
         let canon = |flag: &str, list: Vec<PathBuf>| -> anyhow::Result<Vec<PathBuf>> {
             list.iter()
                 .map(|p| {
@@ -173,8 +179,15 @@ impl ModelsFolder {
     fn resolve_flags(&self) -> Active {
         let usable: Vec<PathBuf> = self.fixed.iter().filter(|p| self.refused(p).is_none()).cloned().collect();
         if usable.is_empty() {
-            let why = self.fixed.iter().map(|p| format!("{}: {}", p.display(), self.refused(p).unwrap_or("unusable"))).collect::<Vec<_>>();
-            return Self::none(format!("no --root folder is usable ({}); a folder inside one of them can be chosen", why.join("; ")));
+            let why = self
+                .fixed
+                .iter()
+                .map(|p| format!("{}: {}", p.display(), self.refused(p).unwrap_or("unusable")))
+                .collect::<Vec<_>>();
+            return Self::none(format!(
+                "no --root folder is usable ({}); a folder inside one of them can be chosen",
+                why.join("; ")
+            ));
         }
         Self::some(usable, Source::Flag)
     }
@@ -183,7 +196,11 @@ impl ModelsFolder {
         match &self.cwd {
             None => Self::none("the server's current directory is unknown".into()),
             Some(c) => match self.refused(c) {
-                Some(why) => Self::none(format!("the server was started in {}, which is never used because {}", c.display(), why)),
+                Some(why) => Self::none(format!(
+                    "the server was started in {}, which is never used because {}",
+                    c.display(),
+                    why
+                )),
                 None => Self::some(vec![c.clone()], Source::Cwd),
             },
         }
@@ -217,7 +234,8 @@ impl ModelsFolder {
 
     pub fn view(&self) -> ModelsFolderOut {
         let a = self.active.read().unwrap();
-        let folders: Vec<String> = a.roots.as_ref().map(|r| r.all().iter().map(|p| p.display().to_string()).collect()).unwrap_or_default();
+        let folders: Vec<String> =
+            a.roots.as_ref().map(|r| r.all().iter().map(|p| p.display().to_string()).collect()).unwrap_or_default();
         let hint = match (&a.roots, self.is_fixed()) {
             (None, _) => format!("{} ({})", NO_FOLDER_HINT, a.why_none),
             (Some(r), true) => format!(
@@ -235,7 +253,8 @@ impl ModelsFolder {
 
     fn replace(&self, next: Active) -> Option<Change> {
         let mut a = self.active.write().unwrap();
-        let same = a.source == next.source && a.roots.as_ref().map(|r| r.all().to_vec()) == next.roots.as_ref().map(|r| r.all().to_vec());
+        let same = a.source == next.source
+            && a.roots.as_ref().map(|r| r.all().to_vec()) == next.roots.as_ref().map(|r| r.all().to_vec());
         *a = next;
         (!same).then(|| Change { roots: a.roots.clone(), source: a.source })
     }
@@ -244,27 +263,37 @@ impl ModelsFolder {
     pub fn set_from_tool(&self, raw: &str) -> Result<Option<Change>, ToolError> {
         let p = Path::new(raw);
         if raw.is_empty() || raw.contains('\0') || !p.is_absolute() {
-            return Err(ToolError::invalid(format!("'{}' is not an absolute path", raw)).hint("Pass the folder's absolute path, e.g. /Users/me/project or C:\\Users\\me\\project."));
+            return Err(ToolError::invalid(format!("'{}' is not an absolute path", raw))
+                .hint("Pass the folder's absolute path, e.g. /Users/me/project or C:\\Users\\me\\project."));
         }
         let c = p.canonicalize().map_err(|e| ToolError::new("FILE_NOT_FOUND", format!("{}: {}", raw, e)))?;
         if !c.is_dir() {
             return Err(ToolError::invalid(format!("{} is not a folder", c.display())));
         }
         if let Some(why) = self.refused(&c) {
-            return Err(ToolError::new("FOLDER_REFUSED", format!("{} cannot be the models folder: {}", c.display(), why))
-                .hint("Choose the project folder that holds the decks."));
+            return Err(ToolError::new(
+                "FOLDER_REFUSED",
+                format!("{} cannot be the models folder: {}", c.display(), why),
+            )
+            .hint("Choose the project folder that holds the decks."));
         }
         if self.is_fixed() && !inside(&c, &self.fixed) {
             return Err(ToolError::new(
                 "ROOT_FIXED",
-                format!("the server was started with --root {}, so the models folder can only move to a folder inside it", join(&self.fixed)),
+                format!(
+                    "the server was started with --root {}, so the models folder can only move to a folder inside it",
+                    join(&self.fixed)
+                ),
             )
             .valid(self.fixed.iter().map(|p| p.display().to_string()).collect())
             .hint("Ask the user to change --root in the server configuration, or choose a folder inside it."));
         }
         if !self.is_fixed() && !self.allow.is_empty() && !inside(&c, &self.allow) {
-            return Err(ToolError::new("PATH_OUTSIDE_ROOTS", format!("{} is outside the folders allowed by --allow", c.display()))
-                .valid(self.allow.iter().map(|p| p.display().to_string()).collect()));
+            return Err(ToolError::new(
+                "PATH_OUTSIDE_ROOTS",
+                format!("{} is outside the folders allowed by --allow", c.display()),
+            )
+            .valid(self.allow.iter().map(|p| p.display().to_string()).collect()));
         }
         Ok(self.replace(Self::some(vec![c], Source::Tool)))
     }
@@ -338,7 +367,11 @@ mod tests {
     fn uri(p: &Path) -> String {
         let s = p.display().to_string();
         let s = s.strip_prefix(r"\\?\").unwrap_or(&s).replace('\\', "/").replace(' ', "%20");
-        if s.starts_with('/') { format!("file://{}", s) } else { format!("file:///{}", s) }
+        if s.starts_with('/') {
+            format!("file://{}", s)
+        } else {
+            format!("file:///{}", s)
+        }
     }
 
     #[test]
@@ -350,7 +383,8 @@ mod tests {
         assert!(refusal(&dir.join("a"), Some(&home)).is_none());
         #[cfg(not(windows))]
         {
-            for p in ["/Users", "/home", "/usr", "/usr/local/share", "/etc", "/System/Library", "/private/tmp", "/tmp"] {
+            for p in ["/Users", "/home", "/usr", "/usr/local/share", "/etc", "/System/Library", "/private/tmp", "/tmp"]
+            {
                 assert!(refusal(Path::new(p), None).is_some(), "{}", p);
             }
             for p in ["/Users/me/project", "/home/me/models", "/tmp/case", "/Library2", "/libfoo"] {
@@ -398,7 +432,8 @@ mod tests {
     fn client_roots_win_over_cwd_and_follow_changes() {
         let dir = sandbox("client");
         let f = ModelsFolder::new(vec![], vec![], Some(dir.join("b")), Some(dir.join("home"))).unwrap();
-        f.set_from_client(&[uri(&dir.join("a")), "https://example.com/x".into(), uri(&dir.join("missing"))], false).unwrap();
+        f.set_from_client(&[uri(&dir.join("a")), "https://example.com/x".into(), uri(&dir.join("missing"))], false)
+            .unwrap();
         let v = f.view();
         assert_eq!((v.folders, v.source), (vec![dir.join("a").display().to_string()], Source::ClientRoots));
         // Only refused roots: back to the current directory.

@@ -2,14 +2,20 @@
 name = "cgx-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Core FEA data model, memory-mapped FRD parser, and invariants for cgx-top"
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "CalculiX file formats in Rust: lazy ASCII and binary .frd reader, .inp deck parser and editor, mesh checks, face selection, contact search and solver telemetry"
+readme = "../../README.md"
 
 [dependencies]
 memmap2 = { workspace = true }
 rayon = { workspace = true }
-byteorder = { workspace = true }
 thiserror = { workspace = true }
-anyhow = { workspace = true }
-glam = { workspace = true }
+
+[lints]
+workspace = true

@@ -25,18 +25,18 @@ pub enum ElementType {
     C3D10,  // 10-node quadratic tetrahedron
     C3D6,   // 6-node linear wedge / prism
     C3D15,  // 15-node quadratic wedge / prism
-    
+
     // 2D Shells / Plates
-    S3,     // 3-node triangular shell (TRI3, code 7)
-    S6,     // 6-node quadratic triangle shell (TRI6, code 8)
-    S4,     // 4-node quadrilateral shell (QUAD4, code 9)
-    S8,     // 8-node quadratic shell (QUAD8, code 10)
-    
+    S3, // 3-node triangular shell (TRI3, code 7)
+    S6, // 6-node quadratic triangle shell (TRI6, code 8)
+    S4, // 4-node quadrilateral shell (QUAD4, code 9)
+    S8, // 8-node quadratic shell (QUAD8, code 10)
+
     // 1D Beams / Trusses
-    B31,    // 2-node beam (BEAM2, code 11)
-    B32,    // 3-node quadratic beam (BEAM3, code 12)
-    T3D2,   // 2-node truss
-    
+    B31,  // 2-node beam (BEAM2, code 11)
+    B32,  // 3-node quadratic beam (BEAM3, code 12)
+    T3D2, // 2-node truss
+
     // Fallback for unknown / custom elements
     Other(i32),
 }
@@ -209,13 +209,7 @@ impl FrdModel {
             return Some(s);
         }
         let upper = name.to_uppercase();
-        self.sets.iter().find_map(|(k, v)| {
-            if k.to_uppercase() == upper {
-                Some(v)
-            } else {
-                None
-            }
-        })
+        self.sets.iter().find_map(|(k, v)| if k.to_uppercase() == upper { Some(v) } else { None })
     }
 
     /// Resolve all unique node IDs belonging to a set (expanding element sets to constituent nodes)
@@ -273,12 +267,7 @@ impl FrdModel {
         for (name, eids) in type_sets {
             self.sets.insert(
                 name.clone(),
-                Set {
-                    name,
-                    set_type: SetType::Element,
-                    node_ids: Vec::new(),
-                    element_ids: eids,
-                },
+                Set { name, set_type: SetType::Element, node_ids: Vec::new(), element_ids: eids },
             );
         }
 
@@ -286,12 +275,7 @@ impl FrdModel {
         for (name, eids) in mat_sets {
             self.sets.insert(
                 name.clone(),
-                Set {
-                    name,
-                    set_type: SetType::Element,
-                    node_ids: Vec::new(),
-                    element_ids: eids,
-                },
+                Set { name, set_type: SetType::Element, node_ids: Vec::new(), element_ids: eids },
             );
         }
     }

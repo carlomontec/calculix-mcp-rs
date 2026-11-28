@@ -9,12 +9,7 @@ static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 fn tmp_dir(name: &str) -> PathBuf {
     let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!(
-        "cgx_inp_consolidate_{}_{}_{}",
-        std::process::id(),
-        n,
-        name
-    ));
+    let dir = std::env::temp_dir().join(format!("cgx_inp_consolidate_{}_{}_{}", std::process::id(), n, name));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -36,11 +31,7 @@ fn diamond_include_consolidates_twice() {
     write(&dir, "common.inc", "*NSET, NSET=COMMON\n1, 2\n");
     write(&dir, "a.inc", "*INCLUDE, INPUT=common.inc\n");
     write(&dir, "b.inc", "*INCLUDE, INPUT=common.inc\n");
-    let root = write(
-        &dir,
-        "root.inp",
-        "*INCLUDE, INPUT=a.inc\n*INCLUDE, INPUT=b.inc\n*STEP\n*STATIC\n*END STEP\n",
-    );
+    let root = write(&dir, "root.inp", "*INCLUDE, INPUT=a.inc\n*INCLUDE, INPUT=b.inc\n*STEP\n*STATIC\n*END STEP\n");
 
     let (text, stats) = consolidate_inp(&root).unwrap();
     assert_eq!(count_lines(&text, "*NSET, NSET=COMMON"), 2);
@@ -77,11 +68,8 @@ fn self_include_is_a_cycle() {
 fn depth_twelve_works() {
     let dir = tmp_dir("deep");
     for i in 1..=12 {
-        let body = if i == 12 {
-            "*NSET, NSET=DEEP\n7\n".to_string()
-        } else {
-            format!("*INCLUDE, INPUT=l{}.inc\n", i + 1)
-        };
+        let body =
+            if i == 12 { "*NSET, NSET=DEEP\n7\n".to_string() } else { format!("*INCLUDE, INPUT=l{}.inc\n", i + 1) };
         write(&dir, &format!("l{i}.inc"), &body);
     }
     let root = write(&dir, "root.inp", "*INCLUDE, INPUT=l1.inc\n");
@@ -99,11 +87,7 @@ fn too_deep_is_an_error() {
     let dir = tmp_dir("toodeep");
     let n = ScanLimits::default().max_depth + 2;
     for i in 1..=n {
-        let body = if i == n {
-            "*NODE\n1, 0, 0, 0\n".to_string()
-        } else {
-            format!("*INCLUDE, INPUT=l{}.inc\n", i + 1)
-        };
+        let body = if i == n { "*NODE\n1, 0, 0, 0\n".to_string() } else { format!("*INCLUDE, INPUT=l{}.inc\n", i + 1) };
         write(&dir, &format!("l{i}.inc"), &body);
     }
     let root = write(&dir, "root.inp", "*INCLUDE, INPUT=l1.inc\n");
@@ -128,10 +112,8 @@ fn input_param_on_node_card_is_inlined() {
     let node_idx = lines.iter().position(|l| *l == "*NODE").expect("bare *NODE header");
     assert_eq!(lines[node_idx + 1], "1, 0., 0., 0.");
     assert_eq!(lines[node_idx + 2], "2, 1., 0., 0.");
-    let ic_idx = lines
-        .iter()
-        .position(|l| *l == "*INITIAL CONDITIONS, TYPE=TEMPERATURE")
-        .expect("header without INPUT");
+    let ic_idx =
+        lines.iter().position(|l| *l == "*INITIAL CONDITIONS, TYPE=TEMPERATURE").expect("header without INPUT");
     assert_eq!(lines[ic_idx + 1], "1, 20.");
     assert!(!text.to_uppercase().contains("INPUT="));
 
@@ -165,12 +147,7 @@ fn lavffcyc_consolidation_matches_card_census() {
         return;
     }
     let (text, _) = consolidate_inp(root).unwrap();
-    assert_eq!(
-        text.lines()
-            .filter(|l| l.trim().to_uppercase().starts_with("*INCLUDE"))
-            .count(),
-        0
-    );
+    assert_eq!(text.lines().filter(|l| l.trim().to_uppercase().starts_with("*INCLUDE")).count(), 0);
 
     let original = scan_cards(root, &ScanLimits::default()).unwrap();
     let dir = tmp_dir("lavffcyc");

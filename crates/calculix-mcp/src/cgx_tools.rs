@@ -197,12 +197,24 @@ fn scan_commands(label: &str, text: &[u8]) -> Result<Vec<ReadRef>, ToolError> {
         let args = &w[1..];
         match kw.as_str() {
             "SYS" => return Err(rejected(label, line, "'sys' runs a shell command and is not allowed")),
-            "GRAPH" => return Err(rejected(label, line, "'graph' runs gnuplot and a viewer through the shell and is not allowed")),
-            "MOVI" | "MOVIE" => return Err(rejected(label, line, "'movi' starts ffmpeg and needs a window; it is not allowed")),
+            "GRAPH" => {
+                return Err(rejected(
+                    label,
+                    line,
+                    "'graph' runs gnuplot and a viewer through the shell and is not allowed",
+                ))
+            }
+            "MOVI" | "MOVIE" => {
+                return Err(rejected(label, line, "'movi' starts ffmpeg and needs a window; it is not allowed"))
+            }
             "ASGN" => {
                 let what = args.first().map(|a| a.to_ascii_lowercase()).unwrap_or_default();
                 if ["viewer", "browser", "cgxhelpfile", "ccxhelpfile", "aflibhelpfile"].contains(&what.as_str()) {
-                    return Err(rejected(label, line, format!("'asgn {}' sets a program or file cgx would open; it is not allowed", what)));
+                    return Err(rejected(
+                        label,
+                        line,
+                        format!("'asgn {}' sets a program or file cgx would open; it is not allowed", what),
+                    ));
                 }
             }
             "VALU" => {
@@ -210,11 +222,21 @@ fn scan_commands(label: &str, text: &[u8]) -> Result<Vec<ReadRef>, ToolError> {
                     values.insert(name.trim_start_matches('!').to_string());
                 }
                 if args.iter().any(|a| a == "?") {
-                    return Err(rejected(label, line, "'valu ... ?' waits for keyboard input, which a batch run cannot give"));
+                    return Err(rejected(
+                        label,
+                        line,
+                        "'valu ... ?' waits for keyboard input, which a batch run cannot give",
+                    ));
                 }
                 if args.get(1).is_some_and(|op| op == "&") {
-                    if let Some(bad) = args[2..].iter().find(|a| !is_number(a) && a.contains(['.', '/', '\\', '~', ':'])) {
-                        return Err(rejected(label, line, format!("concatenating '{}' could build a path; use plain names", bad)));
+                    if let Some(bad) =
+                        args[2..].iter().find(|a| !is_number(a) && a.contains(['.', '/', '\\', '~', ':']))
+                    {
+                        return Err(rejected(
+                            label,
+                            line,
+                            format!("concatenating '{}' could build a path; use plain names", bad),
+                        ));
                     }
                 }
             }
@@ -228,9 +250,14 @@ fn scan_commands(label: &str, text: &[u8]) -> Result<Vec<ReadRef>, ToolError> {
         if kw == "READ" {
             let Some(file) = args.first() else { continue };
             if values.contains(file.as_str()) {
-                return Err(rejected(label, line, format!("'read {}' names a value; read takes a literal file name", file)));
+                return Err(rejected(
+                    label,
+                    line,
+                    format!("'read {}' names a value; read takes a literal file name", file),
+                ));
             }
-            let kind = read_kind(file, args.get(1).map_or("", String::as_str)).map_err(|why| rejected(label, line, why))?;
+            let kind =
+                read_kind(file, args.get(1).map_or("", String::as_str)).map_err(|why| rejected(label, line, why))?;
             reads.push(ReadRef { line, path: file.clone(), kind });
         }
     }
@@ -320,7 +347,10 @@ fn plan_reads(
             }
         };
         if !roots.contains(&source) {
-            return Err(ToolError::new("PATH_OUTSIDE_ROOTS", format!("{}:{}: '{}' resolves outside the allowed roots", label, r.line, r.path)));
+            return Err(ToolError::new(
+                "PATH_OUTSIDE_ROOTS",
+                format!("{}:{}: '{}' resolves outside the allowed roots", label, r.line, r.path),
+            ));
         }
         if chain.contains(&source) {
             return Err(here(format!("'{}' reads itself (directly or through other files)", r.path)));
@@ -392,11 +422,17 @@ fn safe_script_name(name: &str) -> bool {
 /// directory reads resolve against, display label) and the copy plan. Nothing is written.
 fn screen(roots: &Roots, p: &CgxRunIn) -> Result<(String, Vec<u8>, PathBuf, Plan), ToolError> {
     let (name, text, base, label) = match (&p.script, &p.script_path) {
-        (Some(_), Some(_)) | (None, None) => return Err(ToolError::invalid("give exactly one of script and script_path")),
+        (Some(_), Some(_)) | (None, None) => {
+            return Err(ToolError::invalid("give exactly one of script and script_path"))
+        }
         (Some(s), None) => {
             if s.len() > MAX_INLINE_BYTES {
-                return Err(ToolError::invalid(format!("script is {} bytes; the limit is {} (64 KiB)", s.len(), MAX_INLINE_BYTES))
-                    .hint("Write the script to a .fbd file inside the root and pass script_path."));
+                return Err(ToolError::invalid(format!(
+                    "script is {} bytes; the limit is {} (64 KiB)",
+                    s.len(),
+                    MAX_INLINE_BYTES
+                ))
+                .hint("Write the script to a .fbd file inside the root and pass script_path."));
             }
             (INLINE_NAME.to_string(), s.as_bytes().to_vec(), roots.first().to_path_buf(), "script".to_string())
         }
@@ -404,7 +440,10 @@ fn screen(roots: &Roots, p: &CgxRunIn) -> Result<(String, Vec<u8>, PathBuf, Plan
             let path = roots.existing(raw, &["fbd", "fbl"])?;
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             if !safe_script_name(&name) {
-                return Err(ToolError::invalid(format!("script file name '{}' may only contain letters, digits, '_', '-' and '.'", name)));
+                return Err(ToolError::invalid(format!(
+                    "script file name '{}' may only contain letters, digits, '_', '-' and '.'",
+                    name
+                )));
             }
             let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
             if size > MAX_SCANNED_BYTES {
@@ -475,7 +514,8 @@ fn stage(roots: &Roots, p: CgxRunIn) -> Result<Staged, ToolError> {
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).map_err(ToolError::internal)?;
         }
-        std::fs::copy(source, &dest).map_err(|e| ToolError::internal(format!("copy {}: {}", roots.display(source), e)))?;
+        std::fs::copy(source, &dest)
+            .map_err(|e| ToolError::internal(format!("copy {}: {}", roots.display(source), e)))?;
         copied.push(roots.display(source));
     }
     let before = snapshot(&run_dir);
@@ -576,15 +616,28 @@ fn summarize(roots: &Roots, path: &Path) -> MeshSummary {
                     sets.push(SetOut { name: s.name.to_uppercase(), kind: "node".into(), size: s.node_ids.len() });
                 }
                 if !s.element_ids.is_empty() {
-                    sets.push(SetOut { name: s.name.to_uppercase(), kind: "element".into(), size: s.element_ids.len() });
+                    sets.push(SetOut {
+                        name: s.name.to_uppercase(),
+                        kind: "element".into(),
+                        size: s.element_ids.len(),
+                    });
                 }
             }
             for (name, faces) in &mesh.surfaces {
                 sets.push(SetOut { name: name.clone(), kind: "surface".into(), size: faces.len() });
             }
             sets.sort_by(|a, b| (&a.name, &a.kind).cmp(&(&b.name, &b.kind)));
-            let warnings = mesh.warnings.iter().take(5).map(|w| w.replace(&format!("{}/", roots.first().display()), "")).collect();
-            MeshSummary { file, nodes: mesh.nodes.len(), elements: mesh.elements.len(), element_types, bounding_box, sets, warnings }
+            let warnings =
+                mesh.warnings.iter().take(5).map(|w| w.replace(&format!("{}/", roots.first().display()), "")).collect();
+            MeshSummary {
+                file,
+                nodes: mesh.nodes.len(),
+                elements: mesh.elements.len(),
+                element_types,
+                bounding_box,
+                sets,
+                warnings,
+            }
         }
     }
 }
@@ -650,7 +703,9 @@ fn error_lines(run_dir: &Path) -> Vec<String> {
 }
 
 fn is_mesh_file(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()).is_some_and(|e| ["msh", "inp", "nam", "sur"].iter().any(|x| x.eq_ignore_ascii_case(e)))
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| ["msh", "inp", "nam", "sur"].iter().any(|x| x.eq_ignore_ascii_case(e)))
 }
 
 struct Ending {
@@ -666,14 +721,21 @@ fn report(roots: &Roots, s: &Staged, end: Ending) -> CgxRunOut {
     let mut changed: Vec<(&PathBuf, u64)> =
         after.iter().filter(|(p, meta)| s.before.get(*p) != Some(meta)).map(|(p, (len, _))| (p, *len)).collect();
     changed.sort();
-    let meshes: Vec<MeshSummary> =
-        changed.iter().filter(|(p, _)| is_mesh_file(p)).take(MAX_MESH_SUMMARIES).map(|(p, _)| summarize(roots, p)).collect();
-    let files: Vec<FileOut> = changed.iter().take(MAX_FILES_LISTED).map(|(p, len)| FileOut { path: roots.display(p), bytes: *len }).collect();
+    let meshes: Vec<MeshSummary> = changed
+        .iter()
+        .filter(|(p, _)| is_mesh_file(p))
+        .take(MAX_MESH_SUMMARIES)
+        .map(|(p, _)| summarize(roots, p))
+        .collect();
+    let files: Vec<FileOut> =
+        changed.iter().take(MAX_FILES_LISTED).map(|(p, len)| FileOut { path: roots.display(p), bytes: *len }).collect();
     let errors = error_lines(&s.run_dir);
 
     let mut next: Vec<String> = Vec::new();
     match end.status {
-        "TIMED_OUT" => next.push("cgx did not finish in time: raise timeout_s, or look for a while loop that never ends.".into()),
+        "TIMED_OUT" => {
+            next.push("cgx did not finish in time: raise timeout_s, or look for a while loop that never ends.".into())
+        }
         "FAILED" => next.push("cgx failed: read errors and output_tail, fix the script and run again.".into()),
         _ => {}
     }
@@ -735,7 +797,13 @@ async fn execute(cfg: &CgxConfig, s: &Staged) -> Ending {
     let (stdout, stderr) = match (open("stdout.log"), open("stderr.log")) {
         (Ok(o), Ok(e)) => (o, e),
         _ => {
-            return Ending { status: "FAILED", failure: Some("SPAWN: cannot create log files".into()), exit_code: None, signal: None, elapsed: Duration::ZERO }
+            return Ending {
+                status: "FAILED",
+                failure: Some("SPAWN: cannot create log files".into()),
+                exit_code: None,
+                signal: None,
+                elapsed: Duration::ZERO,
+            }
         }
     };
     let mut cmd = isolated_command(&cfg.binary, &s.run_dir, &s.run_dir.join("tmp"), &[], &cfg.env_passthrough);
@@ -849,7 +917,8 @@ pub fn help(p: CgxHelpIn) -> CgxHelpOut {
     let sections = match wanted {
         None => all,
         Some(t) => {
-            let (titled, rest): (Vec<HelpSection>, Vec<HelpSection>) = all.into_iter().partition(|s| s.title.to_lowercase().contains(&t));
+            let (titled, rest): (Vec<HelpSection>, Vec<HelpSection>) =
+                all.into_iter().partition(|s| s.title.to_lowercase().contains(&t));
             if titled.is_empty() {
                 rest.into_iter().filter(|s| s.text.to_lowercase().contains(&t)).collect()
             } else {
@@ -958,7 +1027,17 @@ mod tests {
         use ReadKind::*;
         assert_eq!(
             kinds,
-            [("a.fbd", Commands), ("b.fbl", Commands), ("m.inp", Deck), ("n.msh", Deck), ("r.frd", Data), ("s.stl", Data), ("l.txt", Data), ("t.txt", Data), ("c", Commands)]
+            [
+                ("a.fbd", Commands),
+                ("b.fbl", Commands),
+                ("m.inp", Deck),
+                ("n.msh", Deck),
+                ("r.frd", Data),
+                ("s.stl", Data),
+                ("l.txt", Data),
+                ("t.txt", Data),
+                ("c", Commands)
+            ]
         );
     }
 
@@ -1045,7 +1124,10 @@ mod tests {
         let inline = |s: &str| CgxRunIn { script: Some(s.into()), script_path: None, timeout_s: None };
         let code = |p: CgxRunIn| screen(&roots, &p).unwrap_err().code;
         assert_eq!(code(CgxRunIn { script: None, script_path: None, timeout_s: None }), "INVALID_ARGUMENT");
-        assert_eq!(code(CgxRunIn { script: Some("x".into()), script_path: Some("a.fbd".into()), timeout_s: None }), "INVALID_ARGUMENT");
+        assert_eq!(
+            code(CgxRunIn { script: Some("x".into()), script_path: Some("a.fbd".into()), timeout_s: None }),
+            "INVALID_ARGUMENT"
+        );
         assert_eq!(code(inline(&"#".repeat(MAX_INLINE_BYTES + 1))), "INVALID_ARGUMENT");
         assert!(screen(&roots, &inline(&format!("#{}", "x".repeat(MAX_INLINE_BYTES - 1)))).is_ok());
         write(&dir, "deck.inp", "*NODE\n");
@@ -1113,11 +1195,20 @@ esac
             let bin = dir.join("fake_cgx");
             std::fs::write(&bin, FAKE_CGX).unwrap();
             std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-            Arc::new(CgxConfig { binary: bin, env_passthrough: Vec::new(), max_run_bytes: 1 << 30, grace: Duration::from_millis(300) })
+            Arc::new(CgxConfig {
+                binary: bin,
+                env_passthrough: Vec::new(),
+                max_run_bytes: 1 << 30,
+                grace: Duration::from_millis(300),
+            })
         }
 
         async fn run(dir: &Path, roots: &Roots, mode: &str, timeout_s: u64) -> CgxRunOut {
-            let p = CgxRunIn { script: Some(format!("# MODE={}\npnt p 0 0 0\n", mode)), script_path: None, timeout_s: Some(timeout_s) };
+            let p = CgxRunIn {
+                script: Some(format!("# MODE={}\npnt p 0 0 0\n", mode)),
+                script_path: None,
+                timeout_s: Some(timeout_s),
+            };
             run_batch(Arc::new(roots.clone()), Some(fake(dir)), p).await.unwrap()
         }
 
@@ -1132,7 +1223,11 @@ esac
             assert_eq!((out.status.as_str(), out.exit_code, out.failure.as_deref()), ("SUCCEEDED", Some(0), None));
             let files: Vec<&str> = out.files.iter().map(|f| f.path.as_str()).collect();
             let rd = &out.run_dir;
-            assert_eq!(files, [format!("{}/all.msh", rd), format!("{}/fix.nam", rd)], "the unchanged script and the logs are not listed");
+            assert_eq!(
+                files,
+                [format!("{}/all.msh", rd), format!("{}/fix.nam", rd)],
+                "the unchanged script and the logs are not listed"
+            );
             assert!(out.run_dir.starts_with(".calculix-mcp/cgx/g"));
             let msh = &out.meshes[0];
             assert_eq!((msh.nodes, msh.elements, msh.element_types.get("C3D4")), (4, 1, Some(&1)));
@@ -1142,7 +1237,11 @@ esac
             assert!(out.next.contains("mesh_check"), "{}", out.next);
             // Arguments and isolation, as seen by the child.
             let home = dir.join(&out.run_dir).join("tmp");
-            assert!(out.output_tail.contains(&format!("args=-bg script.fbd home={}", home.display())), "{}", out.output_tail);
+            assert!(
+                out.output_tail.contains(&format!("args=-bg script.fbd home={}", home.display())),
+                "{}",
+                out.output_tail
+            );
             assert!(out.errors.is_empty());
             let _ = std::fs::remove_dir_all(&dir);
         }
@@ -1169,7 +1268,8 @@ esac
             assert_eq!(out.status, "TIMED_OUT");
             assert!(out.failure.unwrap().starts_with("TIMEOUT"));
             assert!(out.elapsed_s >= 1.0 && out.elapsed_s < 10.0, "{}", out.elapsed_s);
-            let pid: u32 = std::fs::read_to_string(dir.join(&out.run_dir).join("child.pid")).unwrap().trim().parse().unwrap();
+            let pid: u32 =
+                std::fs::read_to_string(dir.join(&out.run_dir).join("child.pid")).unwrap().trim().parse().unwrap();
             for _ in 0..40 {
                 if !alive(pid) {
                     break;
@@ -1186,14 +1286,18 @@ esac
             let out = run(&dir, &roots, "flood", 30).await;
             assert!(out.output_tail.starts_with("[... "), "{}", &out.output_tail[..80]);
             assert!(out.output_tail.len() < TAIL_BYTES as usize + 80);
-            assert!(out.output_tail.trim_end().ends_with("line 399 of a long and chatty output ............................"));
+            assert!(out
+                .output_tail
+                .trim_end()
+                .ends_with("line 399 of a long and chatty output ............................"));
             let _ = std::fs::remove_dir_all(&dir);
         }
 
         #[tokio::test]
         async fn a_rejected_script_never_starts() {
             let (dir, roots) = sandbox("proc-reject");
-            let p = CgxRunIn { script: Some("# MODE=mesh\nsys touch pwned\n".into()), script_path: None, timeout_s: None };
+            let p =
+                CgxRunIn { script: Some("# MODE=mesh\nsys touch pwned\n".into()), script_path: None, timeout_s: None };
             let e = run_batch(Arc::new(roots.clone()), Some(fake(&dir)), p).await.unwrap_err();
             assert_eq!(e.code, "INVALID_ARGUMENT");
             assert!(!dir.join(".calculix-mcp/cgx").exists(), "no run directory is created");
@@ -1204,12 +1308,19 @@ esac
     // ---------- the real cgx (run with: cargo test -p calculix-mcp -- --ignored cgx) ----------
 
     fn real_cgx() -> Option<Arc<CgxConfig>> {
-        let bin = std::env::var_os("CGX_BIN").map(PathBuf::from).unwrap_or_else(|| crate::paths::test_data("cgx/bin/cgx_glfw"));
+        let bin = std::env::var_os("CGX_BIN")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| crate::paths::test_data("cgx/bin/cgx_glfw"));
         if !bin.is_file() {
             eprintln!("skipped: no cgx binary at {} (set CGX_BIN)", bin.display());
             return None;
         }
-        Some(Arc::new(CgxConfig { binary: bin, env_passthrough: Vec::new(), max_run_bytes: 1 << 30, grace: Duration::from_secs(2) }))
+        Some(Arc::new(CgxConfig {
+            binary: bin,
+            env_passthrough: Vec::new(),
+            max_run_bytes: 1 << 30,
+            grace: Duration::from_secs(2),
+        }))
     }
 
     async fn run_real(roots: &Roots, cfg: &Arc<CgxConfig>, script: &str) -> CgxRunOut {
@@ -1218,7 +1329,10 @@ esac
     }
 
     fn mesh<'a>(out: &'a CgxRunOut, file: &str) -> &'a MeshSummary {
-        out.meshes.iter().find(|m| m.file.ends_with(&format!("/{}", file))).unwrap_or_else(|| panic!("no {} in {:?}", file, out.files))
+        out.meshes
+            .iter()
+            .find(|m| m.file.ends_with(&format!("/{}", file)))
+            .unwrap_or_else(|| panic!("no {} in {:?}", file, out.files))
     }
 
     fn set_size(m: &MeshSummary, name: &str) -> Option<usize> {
@@ -1260,8 +1374,17 @@ esac
                         assert!((g - w).abs() < 1e-6, "{} bbox {:?} != {:?}", file, got, want);
                     }
                 }
-                k if m.element_types.contains_key(k) => assert_eq!(m.element_types[k].to_string(), value, "{} {}", file, k),
-                k => assert_eq!(set_size(m, k).map(|s| s.to_string()).as_deref(), Some(value), "{} set {}: {:?}", file, k, m.sets),
+                k if m.element_types.contains_key(k) => {
+                    assert_eq!(m.element_types[k].to_string(), value, "{} {}", file, k)
+                }
+                k => assert_eq!(
+                    set_size(m, k).map(|s| s.to_string()).as_deref(),
+                    Some(value),
+                    "{} set {}: {:?}",
+                    file,
+                    k,
+                    m.sets
+                ),
             }
         }
     }
@@ -1285,7 +1408,12 @@ esac
     }
 
     fn block_example() -> String {
-        examples().into_iter().find(|e| e.contains("nodes=321 elements=40") && e.contains("swep base top tra 0 0 10 4") && !e.contains("enq")).unwrap()
+        examples()
+            .into_iter()
+            .find(|e| {
+                e.contains("nodes=321 elements=40") && e.contains("swep base top tra 0 0 10 4") && !e.contains("enq")
+            })
+            .unwrap()
     }
 
     #[tokio::test]
@@ -1301,12 +1429,21 @@ esac
         assert!(out.next.contains("mesh_check"));
 
         // The cheat sheet's deck, without the set files this run did not write.
-        let deck: String = cheatsheet_deck().lines().filter(|l| !l.contains("fix.nam") && !l.contains("load.sur")).collect::<Vec<_>>().join("\n");
+        let deck: String = cheatsheet_deck()
+            .lines()
+            .filter(|l| !l.contains("fix.nam") && !l.contains("load.sur"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let deck = deck.replace("*BOUNDARY\nNfix, 1, 3\n*DLOAD\nSload, P, 1.5\n", "");
         let deck_path = dir.join(&out.run_dir).join("check.inp");
         std::fs::write(&deck_path, deck).unwrap();
-        let check = crate::mesh_tools::check(&roots, crate::mesh_tools::MeshCheckIn { path: roots.display(&deck_path) }).unwrap();
-        eprintln!("mesh_check: verdict {} volume {} problems {:?}", check.verdict, check.mass.volume, check.problems.items);
+        let check =
+            crate::mesh_tools::check(&roots, crate::mesh_tools::MeshCheckIn { path: roots.display(&deck_path) })
+                .unwrap();
+        eprintln!(
+            "mesh_check: verdict {} volume {} problems {:?}",
+            check.verdict, check.mass.volume, check.problems.items
+        );
         assert_eq!(check.verdict, "OK", "{:?}", check.problems.items);
         assert!((check.mass.volume - 20000.0).abs() / 20000.0 < 1e-6, "volume {}", check.mass.volume);
         let _ = std::fs::remove_dir_all(&dir);
@@ -1324,7 +1461,11 @@ esac
         let out = run_real(&roots, &cfg, &script).await;
         let sur = mesh(&out, "load.sur");
         let nam = mesh(&out, "fix.nam");
-        eprintln!("faces: load.sur {:?}, fix.nam {:?}", sur.sets.iter().map(|s| (&s.name, &s.kind, s.size)).collect::<Vec<_>>(), nam.sets.iter().map(|s| (&s.name, s.size)).collect::<Vec<_>>());
+        eprintln!(
+            "faces: load.sur {:?}, fix.nam {:?}",
+            sur.sets.iter().map(|s| (&s.name, &s.kind, s.size)).collect::<Vec<_>>(),
+            nam.sets.iter().map(|s| (&s.name, s.size)).collect::<Vec<_>>()
+        );
         assert_eq!(set_size(sur, "SLOAD"), Some(4), "2 x 2 he20 faces at x = 100");
         assert_eq!(sur.sets[0].kind, "surface");
         assert_eq!(set_size(nam, "NFIX"), Some(21), "5 x 5 face nodes minus the 4 face centres");
@@ -1332,7 +1473,9 @@ esac
         // The full deck of the cheat sheet, with the set files, passes mesh_check too.
         let deck_path = dir.join(&out.run_dir).join("check.inp");
         std::fs::write(&deck_path, cheatsheet_deck()).unwrap();
-        let check = crate::mesh_tools::check(&roots, crate::mesh_tools::MeshCheckIn { path: roots.display(&deck_path) }).unwrap();
+        let check =
+            crate::mesh_tools::check(&roots, crate::mesh_tools::MeshCheckIn { path: roots.display(&deck_path) })
+                .unwrap();
         assert_eq!(check.verdict, "OK", "{:?}", check.problems.items);
         let _ = std::fs::remove_dir_all(&dir);
     }

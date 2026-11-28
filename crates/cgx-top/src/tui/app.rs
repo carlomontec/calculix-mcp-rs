@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Carlo Daniel Monjaraz Tec
 
-use cgx_core::{
-    compute_dataset_disp_invariants, compute_dataset_stress_invariants,
-    FrdModel,
-};
+use cgx_core::{compute_dataset_disp_invariants, compute_dataset_stress_invariants, FrdModel};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,13 +36,13 @@ pub struct StepExtremaDetail {
     pub increment_number: u32,
     pub value: f32,
     pub description: String,
-    
+
     // Displacement
     pub has_disp: bool,
     pub max_disp: Option<(f32, u32)>, // (value, node_id)
     pub min_disp: Option<(f32, u32)>,
     pub disp_comps: Vec<(String, f32, u32, f32, u32)>, // (comp_name, min_val, min_node, max_val, max_node)
-    
+
     // Stress
     pub has_stress: bool,
     pub max_von_mises: Option<(f32, u32)>,
@@ -65,7 +62,7 @@ pub struct AppState {
     pub model: FrdModel,
     pub filename: String,
     pub file_size_kb: f64,
-    
+
     // Navigation
     pub selected_step_idx: usize,
     pub available_sets: Vec<String>,
@@ -139,18 +136,18 @@ impl AppState {
     }
 
     pub fn next_set(&mut self) {
-        if self.available_sets.is_empty() { return; }
+        if self.available_sets.is_empty() {
+            return;
+        }
         let next_idx = (self.active_set_idx + 1) % self.available_sets.len();
         self.update_active_set(next_idx);
     }
 
     pub fn prev_set(&mut self) {
-        if self.available_sets.is_empty() { return; }
-        let prev_idx = if self.active_set_idx == 0 {
-            self.available_sets.len() - 1
-        } else {
-            self.active_set_idx - 1
-        };
+        if self.available_sets.is_empty() {
+            return;
+        }
+        let prev_idx = if self.active_set_idx == 0 { self.available_sets.len() - 1 } else { self.active_set_idx - 1 };
         self.update_active_set(prev_idx);
     }
 
@@ -191,12 +188,13 @@ impl AppState {
         let filter = self.active_nodes.as_ref();
 
         // Check if steps have displacement or stress datasets
-        let has_mises = self.model.steps.iter().any(|s| {
-            s.datasets.iter().any(|d| d.field_type == cgx_core::FieldType::Stress)
-        });
-        let has_disp = self.model.steps.iter().any(|s| {
-            s.datasets.iter().any(|d| d.field_type == cgx_core::FieldType::Displacement)
-        });
+        let has_mises =
+            self.model.steps.iter().any(|s| s.datasets.iter().any(|d| d.field_type == cgx_core::FieldType::Stress));
+        let has_disp = self
+            .model
+            .steps
+            .iter()
+            .any(|s| s.datasets.iter().any(|d| d.field_type == cgx_core::FieldType::Displacement));
 
         match self.field_view {
             ActiveFieldView::Stress if has_mises => {
@@ -230,11 +228,7 @@ impl AppState {
     pub fn compute_step_details(&self, step_idx: usize) -> Option<StepExtremaDetail> {
         let step = self.model.steps.get(step_idx)?;
         let filter = self.active_nodes.as_ref();
-        let candidate_nodes_count = if let Some(f) = filter {
-            f.len()
-        } else {
-            self.model.nodes.len()
-        };
+        let candidate_nodes_count = if let Some(f) = filter { f.len() } else { self.model.nodes.len() };
 
         let mut detail = StepExtremaDetail {
             step_number: step.step_number,
@@ -297,11 +291,7 @@ impl AppState {
             self.available_sets.iter().enumerate().collect()
         } else {
             let q = self.set_search_query.to_lowercase();
-            self.available_sets
-                .iter()
-                .enumerate()
-                .filter(|(_, name)| name.to_lowercase().contains(&q))
-                .collect()
+            self.available_sets.iter().enumerate().filter(|(_, name)| name.to_lowercase().contains(&q)).collect()
         }
     }
 }
@@ -361,18 +351,14 @@ mod tests {
             model.node_index.insert(n.id, i);
         }
 
-        model.sets.insert("NFIX".to_string(), Set {
-            name: "NFIX".to_string(),
-            set_type: SetType::Node,
-            node_ids: vec![1],
-            element_ids: vec![],
-        });
-        model.sets.insert("NTIP".to_string(), Set {
-            name: "NTIP".to_string(),
-            set_type: SetType::Node,
-            node_ids: vec![3],
-            element_ids: vec![],
-        });
+        model.sets.insert(
+            "NFIX".to_string(),
+            Set { name: "NFIX".to_string(), set_type: SetType::Node, node_ids: vec![1], element_ids: vec![] },
+        );
+        model.sets.insert(
+            "NTIP".to_string(),
+            Set { name: "NTIP".to_string(), set_type: SetType::Node, node_ids: vec![3], element_ids: vec![] },
+        );
 
         for s in 1..=5 {
             model.steps.push(StepInfo {

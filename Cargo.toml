@@ -9,16 +9,24 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.89"
 authors = ["Carlo Daniel Monjaraz Tec"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/carlomontec/calculix-mcp-rs"
+homepage = "https://github.com/carlomontec/calculix-mcp-rs"
+keywords = ["calculix", "fea", "mcp", "finite-element", "cae"]
+categories = ["science", "command-line-utilities", "parser-implementations"]
 description = "MCP server and Rust toolkit that let AI agents inspect, check, solve and post-process CalculiX models"
+
+[workspace.lints.clippy]
+# Parsers and report builders pass many related values and return wide tuples on purpose.
+too_many_arguments = "allow"
+type_complexity = "allow"
 
 [workspace.dependencies]
 # Performance and zero-copy
 memmap2 = "0.9"
 rayon = "1.10"
-byteorder = "1.5"
 
 # Terminal UI
 ratatui = "0.29"
@@ -28,6 +36,3 @@ crossterm = { version = "0.28", features = ["event-stream"] }
 clap = { version = "4.5", features = ["derive"] }
 thiserror = "2.0"
 anyhow = "1.0"
-
-# Math & 3D transformations
-glam = "0.29"
